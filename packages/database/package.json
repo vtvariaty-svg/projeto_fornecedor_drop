@@ -2,8 +2,10 @@
   "name": "@drop/database",
   "version": "0.0.1",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc --project tsconfig.json",
     "prisma": "prisma",
     "generate": "prisma generate",
     "validate": "prisma validate",
