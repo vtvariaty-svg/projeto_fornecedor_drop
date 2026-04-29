@@ -23,6 +23,7 @@
     "bcryptjs": "^3.0.3"
   },
   "devDependencies": {
+    "@types/node": "^20.19.39",
     "prisma": "^5.14.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"

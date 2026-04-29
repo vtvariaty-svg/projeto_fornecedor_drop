@@ -8,8 +8,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserData | null>(null);
   const [tenants, setTenants] = useState<TenantData[]>([]);
+  const [activeTenant, setActiveTenant] = useState<TenantData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -21,6 +21,9 @@ export default function DashboardPage() {
       .then(({ user, tenants }) => {
         setUser(user);
         setTenants(tenants);
+        const first = tenants[0] ?? null;
+        setActiveTenant(first);
+        if (first) localStorage.setItem("drop:tenant_id", first.id);
       })
       .catch(() => {
         authService.logout().then(() => router.replace("/login"));
@@ -29,12 +32,17 @@ export default function DashboardPage() {
   }, [router]);
 
   async function handleLogout() {
+    localStorage.removeItem("drop:tenant_id");
     await authService.logout();
     router.replace("/login");
   }
 
+  function selectTenant(t: TenantData) {
+    setActiveTenant(t);
+    localStorage.setItem("drop:tenant_id", t.id);
+  }
+
   if (loading) return <p style={styles.center}>Carregando...</p>;
-  if (error) return <p style={styles.center}>{error}</p>;
   if (!user) return null;
 
   return (
@@ -62,12 +70,35 @@ export default function DashboardPage() {
             <ul style={styles.list}>
               {tenants.map((t) => (
                 <li key={t.id} style={styles.listItem}>
-                  <strong>{t.name}</strong> ({t.slug}) — {t.role} — {t.status}
+                  <button
+                    onClick={() => selectTenant(t)}
+                    style={{
+                      ...styles.tenantBtn,
+                      background: activeTenant?.id === t.id ? "#111" : "#f0f0f0",
+                      color: activeTenant?.id === t.id ? "#fff" : "#333",
+                    }}
+                  >
+                    {t.name} ({t.slug}) — {t.role}
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </section>
+
+        {activeTenant && (
+          <section style={styles.card}>
+            <h2 style={styles.section}>Acesso rápido</h2>
+            <div style={styles.quickLinks}>
+              <button
+                onClick={() => router.push("/dashboard/catalog")}
+                style={styles.quickBtn}
+              >
+                🛍 Ver Catálogo
+              </button>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
@@ -82,6 +113,9 @@ const styles: Record<string, React.CSSProperties> = {
   logoutBtn: { padding: "0.5rem 1rem", background: "#c00", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" },
   card: { background: "#fff", padding: "1.5rem", borderRadius: "8px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", marginBottom: "1rem" },
   section: { margin: "0 0 1rem", fontSize: "1rem", color: "#333" },
-  list: { margin: 0, paddingLeft: "1.25rem" },
+  list: { margin: 0, padding: 0, listStyle: "none" },
   listItem: { marginBottom: "0.5rem" },
+  tenantBtn: { border: "none", borderRadius: "4px", padding: "0.4rem 0.75rem", cursor: "pointer", fontSize: "0.875rem" },
+  quickLinks: { display: "flex", gap: "0.75rem", flexWrap: "wrap" },
+  quickBtn: { padding: "0.6rem 1.25rem", background: "#111", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "0.9rem" },
 };
