@@ -1,0 +1,21 @@
+{
+  "name": "worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "ts-node --esm src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "echo \"No linter configured yet\"",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "@drop/database": "workspace:*",
+    "@drop/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

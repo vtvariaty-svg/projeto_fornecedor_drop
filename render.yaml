@@ -1,0 +1,63 @@
+services:
+  # =============================================
+  # API — NestJS
+  # =============================================
+  - type: web
+    name: plataforma-drop-api
+    env: node
+    rootDir: apps/api
+    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter api build
+    startCommand: node dist/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_BUCKET
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+
+  # =============================================
+  # WEB — Next.js
+  # =============================================
+  - type: web
+    name: plataforma-drop-web
+    env: node
+    rootDir: apps/web
+    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter web build
+    startCommand: node .next/standalone/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # =============================================
+  # WORKER — Background Worker
+  # =============================================
+  - type: worker
+    name: plataforma-drop-worker
+    env: node
+    rootDir: apps/worker
+    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter worker build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false

@@ -1,0 +1,893 @@
+PROMPT PARA CLAUDE CODE SONNET
+Título:
+Criar fundação técnica do monorepo da plataforma B2B de dropshipping, white label e private label
+Contexto:
+Estamos construindo uma plataforma B2B para uma empresa produtora de bolsas e acessórios. A plataforma permitirá que lojistas vendam produtos via dropshipping, criem marcas próprias em modelo white label e futuramente desenvolvam coleções private label.
+A proposta central do produto é permitir que lojistas, influenciadores, boutiques e empreendedores criem uma marca de bolsas e acessórios sem fábrica, sem estoque e sem logística própria.
+A arquitetura definida para o projeto é:
+
+
+Frontend: Next.js com TypeScript.
+
+
+Backend: Node.js com NestJS e TypeScript.
+
+
+Banco de dados: Neon PostgreSQL.
+
+
+ORM: Prisma.
+
+
+Hospedagem: Render.
+
+
+Worker: Render Background Worker.
+
+
+Cron jobs futuros: Render Cron Jobs.
+
+
+Storage futuro: S3-compatible, preferencialmente Cloudflare R2 ou AWS S3.
+
+
+Filas futuras: BullMQ com Redis, usando Render Key Value ou Upstash Redis.
+
+
+Autenticação futura: JWT com refresh token.
+
+
+Permissões futuras: RBAC.
+
+
+Deploy: Render via render.yaml.
+
+
+Objetivo:
+Criar a fundação técnica inicial do repositório em formato monorepo, com apps separados para web, api e worker, pacote de database com Prisma, estrutura inicial modular no backend, configuração base do frontend e arquivo render.yaml inicial.
+Essa tarefa não deve implementar funcionalidades de negócio completas. O foco é preparar uma base sólida, organizada e extensível para as próximas fases.
+Antes de modificar:
+
+
+Inspecione a estrutura atual do repositório.
+
+
+Identifique se já existe package manager, framework, tsconfig, lint, aliases, estrutura prévia ou qualquer configuração relevante.
+
+
+Preserve qualquer configuração existente que fizer sentido.
+
+
+Não reescreva partes não relacionadas.
+
+
+Não remova código existente sem necessidade clara.
+
+
+Não adicione segredos reais no código.
+
+
+Documente decisões relevantes tomadas durante a implementação.
+
+
+Escopo incluído:
+
+
+Configurar monorepo com pnpm workspaces.
+
+
+Criar a estrutura de apps:
+
+
+apps/web
+
+
+apps/api
+
+
+apps/worker
+
+
+
+
+Criar a estrutura de packages:
+
+
+packages/database
+
+
+packages/shared
+
+
+
+
+Configurar Next.js com TypeScript em apps/web.
+
+
+Configurar NestJS com TypeScript em apps/api.
+
+
+Configurar worker Node.js com TypeScript em apps/worker.
+
+
+Configurar Prisma em packages/database.
+
+
+Criar schema Prisma inicial com entidades fundamentais.
+
+
+Criar scripts de build, dev, lint, test quando aplicável, prisma generate e prisma validate.
+
+
+Criar arquivo .env.example.
+
+
+Criar render.yaml inicial.
+
+
+Criar README técnico inicial com instruções de setup local.
+
+
+Criar endpoint de health check no backend.
+
+
+Preparar a base para Neon PostgreSQL usando DATABASE_URL e DIRECT_URL.
+
+
+Escopo excluído:
+
+
+Não implementar autenticação completa ainda.
+
+
+Não implementar JWT ainda.
+
+
+Não implementar refresh token ainda.
+
+
+Não implementar RBAC funcional ainda.
+
+
+Não implementar catálogo ainda.
+
+
+Não implementar pedidos ainda.
+
+
+Não implementar reserva de estoque ainda.
+
+
+Não implementar uploads ainda.
+
+
+Não implementar storage real ainda.
+
+
+Não implementar pagamentos.
+
+
+Não implementar integrações externas.
+
+
+Não implementar BullMQ ainda.
+
+
+Não implementar Redis ainda.
+
+
+Não implementar white label ainda.
+
+
+Não implementar private label ainda.
+
+
+Não criar mockup automático de produtos.
+
+
+Não adicionar credenciais reais.
+
+
+Não conectar frontend diretamente ao banco.
+
+
+Requisitos técnicos:
+
+
+Usar TypeScript em todos os apps e packages.
+
+
+Usar pnpm como package manager.
+
+
+Usar pnpm workspaces.
+
+
+Manter TypeScript estrito sempre que possível.
+
+
+Usar NestJS modular no backend.
+
+
+Usar Next.js App Router no frontend, caso o projeto esteja sendo criado do zero.
+
+
+Usar Prisma para acesso ao banco.
+
+
+Preparar o projeto para Neon PostgreSQL.
+
+
+Criar DATABASE_URL e DIRECT_URL no .env.example.
+
+
+DATABASE_URL deve ser usada em runtime.
+
+
+DIRECT_URL deve ser usada para migrations.
+
+
+API deve escutar em process.env.PORT.
+
+
+API deve ter endpoint GET /health.
+
+
+Worker deve ter entrypoint próprio.
+
+
+Nenhum segredo deve ser commitado.
+
+
+Nenhum arquivo enviado por usuário deve ser salvo no filesystem local do Render.
+
+
+Não expor connection string do Neon no frontend.
+
+
+Criar código limpo, modular e extensível.
+
+
+Evitar overengineering nesta etapa.
+
+
+Manter a arquitetura pronta para multi-tenancy.
+
+
+Requisitos de segurança:
+
+
+Não colocar segredos no código.
+
+
+Não colocar credenciais reais em .env.example, render.yaml ou README.
+
+
+Não expor DATABASE_URL, DIRECT_URL ou qualquer segredo no frontend.
+
+
+Preparar a arquitetura para autenticação JWT futura.
+
+
+Preparar a arquitetura para RBAC futuro.
+
+
+Criar separação clara entre contexto administrativo e contexto de lojista/tenant.
+
+
+Não implementar queries de negócio sem considerar tenantId nas próximas fases.
+
+
+Deixar claro no README que arquivos devem ser armazenados futuramente em storage externo S3-compatible, nunca no filesystem local do Render.
+
+
+Requisitos de banco:
+Criar um schema Prisma inicial em packages/database com entidades fundamentais e campos mínimos suficientes para sustentar a evolução do produto.
+Entidades obrigatórias:
+
+
+User
+
+
+Tenant
+
+
+TenantUser
+
+
+Brand
+
+
+Product
+
+
+ProductVariant
+
+
+ProductMedia
+
+
+CustomizationOption
+
+
+ProductCustomizationOption
+
+
+BrandAsset
+
+
+InventoryItem
+
+
+InventoryMovement
+
+
+Order
+
+
+OrderItem
+
+
+OrderStatusHistory
+
+
+Shipment
+
+
+Payment
+
+
+Wallet
+
+
+WalletTransaction
+
+
+AuditLog
+
+
+Enums obrigatórios:
+
+
+UserRole
+
+
+TenantStatus
+
+
+BrandStatus
+
+
+ProductStatus
+
+
+OrderStatus
+
+
+ShipmentStatus
+
+
+PaymentStatus
+
+
+InventoryMovementType
+
+
+AssetType
+
+
+AuditAction
+
+
+Regras de modelagem:
+
+
+Tenant representa o lojista, empresa cliente ou organização B2B.
+
+
+Um tenant pode ter vários usuários.
+
+
+Um usuário pode participar de múltiplos tenants via TenantUser, se a modelagem escolhida permitir isso.
+
+
+Um tenant pode ter várias marcas.
+
+
+Uma marca pertence a um tenant.
+
+
+Produto-base pertence à operação principal, não ao lojista.
+
+
+Nunca criar relação obrigatória direta entre Product e Brand.
+
+
+ProductVariant representa um SKU vendável.
+
+
+Estoque deve ser ligado ao ProductVariant.
+
+
+InventoryItem deve separar quantidade disponível e quantidade reservada.
+
+
+Pedido deve pertencer a um tenant.
+
+
+Pedido pode pertencer opcionalmente a uma brand.
+
+
+Pedido deve ter itens com snapshot de nome, SKU, preço e personalização.
+
+
+Pedido deve ter histórico de status.
+
+
+Shipment deve se relacionar com Order.
+
+
+Payment deve se relacionar com Order e/ou Tenant, conforme fizer sentido nesta etapa inicial.
+
+
+Wallet deve se relacionar com Tenant.
+
+
+WalletTransaction deve se relacionar com Wallet.
+
+
+AuditLog deve permitir rastrear ações sensíveis futuras.
+
+
+Criar createdAt e updatedAt nas principais entidades.
+
+
+Usar cuid ou uuid como IDs.
+
+
+Criar índices básicos para:
+
+
+tenantId
+
+
+brandId
+
+
+sku
+
+
+order status
+
+
+createdAt
+
+
+product status
+
+
+payment status
+
+
+shipment status
+
+
+
+
+Backend:
+Criar estrutura inicial em apps/api:
+
+
+src/main.ts
+
+
+src/app.module.ts
+
+
+src/common
+
+
+src/modules/health
+
+
+src/modules/auth
+
+
+src/modules/users
+
+
+src/modules/tenants
+
+
+src/modules/brands
+
+
+src/modules/catalog
+
+
+src/modules/inventory
+
+
+src/modules/orders
+
+
+src/modules/fulfillment
+
+
+src/modules/billing
+
+
+src/modules/files
+
+
+src/modules/audit
+
+
+Implementar apenas:
+
+
+AppModule.
+
+
+HealthModule.
+
+
+HealthController.
+
+
+Endpoint GET /health retornando status ok, service name e timestamp.
+
+
+ConfigModule para variáveis de ambiente.
+
+
+PrismaService de forma limpa, preferencialmente importado ou centralizado a partir de packages/database.
+
+
+Estrutura vazia ou mínima dos módulos futuros, sem regras de negócio ainda.
+
+
+Não implementar agora:
+
+
+Auth real.
+
+
+Guards reais.
+
+
+Controllers de negócio.
+
+
+Services de catálogo, pedido, estoque ou pagamento.
+
+
+Webhooks.
+
+
+Jobs.
+
+
+Uploads.
+
+
+Frontend:
+Criar estrutura inicial em apps/web:
+
+
+Página inicial simples.
+
+
+Página /login placeholder.
+
+
+Página /dashboard placeholder.
+
+
+Layout base.
+
+
+Configuração de client API usando NEXT_PUBLIC_API_URL.
+
+
+Estrutura preparada para componentes reutilizáveis.
+
+
+Separar, quando fizer sentido:
+
+
+pages/app routes
+
+
+components
+
+
+services
+
+
+hooks
+
+
+lib
+
+
+
+
+Requisitos do frontend:
+
+
+Não conter lógica de negócio pesada.
+
+
+Não acessar banco diretamente.
+
+
+Não expor segredos.
+
+
+Usar NEXT_PUBLIC_API_URL apenas para URL pública da API.
+
+
+Tratar a página inicial como placeholder institucional/técnico simples.
+
+
+Tratar /login e /dashboard como placeholders, sem autenticação real.
+
+
+Worker:
+Criar apps/worker com:
+
+
+Entrypoint TypeScript.
+
+
+Estrutura para jobs futuros.
+
+
+Script start.
+
+
+Script build.
+
+
+Log inicial informando que o worker está ativo.
+
+
+Preparação conceitual para BullMQ no futuro, mas sem implementar Redis ou filas agora.
+
+
+Render:
+Criar render.yaml conceitual com:
+
+
+Web service para api.
+
+
+Web service para web.
+
+
+Background worker para worker.
+
+
+Configuração de build e start commands compatíveis com pnpm.
+
+
+Variáveis sensíveis com sync: false.
+
+
+Sem segredos reais.
+
+
+Uso de process.env.PORT para API.
+
+
+Estrutura pronta para configurar DATABASE_URL, DIRECT_URL, JWT_SECRET, JWT_REFRESH_SECRET, REDIS_URL e variáveis de storage no painel do Render.
+
+
+.env.example:
+Criar arquivo .env.example na raiz com:
+DATABASE_URL=
+DIRECT_URL=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+NEXT_PUBLIC_API_URL=
+REDIS_URL=
+STORAGE_ENDPOINT=
+STORAGE_BUCKET=
+STORAGE_ACCESS_KEY=
+STORAGE_SECRET_KEY=
+README:
+Criar README técnico inicial explicando:
+
+
+Objetivo do projeto.
+
+
+Estrutura do monorepo.
+
+
+Apps e packages.
+
+
+Como instalar dependências.
+
+
+Como configurar variáveis de ambiente.
+
+
+Diferença entre DATABASE_URL e DIRECT_URL no Neon.
+
+
+Como rodar API localmente.
+
+
+Como rodar web localmente.
+
+
+Como rodar worker localmente.
+
+
+Como executar Prisma generate.
+
+
+Como validar Prisma schema.
+
+
+Como fazer build dos apps.
+
+
+Como funciona o render.yaml inicial.
+
+
+Pendências esperadas para próximas fases.
+
+
+Critérios de aceitação:
+
+
+O monorepo usa pnpm workspaces.
+
+
+apps/web existe e usa Next.js com TypeScript.
+
+
+apps/api existe e usa NestJS com TypeScript.
+
+
+apps/worker existe e usa Node.js com TypeScript.
+
+
+packages/database existe e contém Prisma configurado.
+
+
+packages/shared existe, mesmo que com estrutura mínima.
+
+
+Prisma schema contém as entidades fundamentais listadas.
+
+
+Prisma schema contém os enums fundamentais listados.
+
+
+Prisma schema valida com prisma validate.
+
+
+Prisma generate executa.
+
+
+API sobe localmente.
+
+
+GET /health retorna resposta válida.
+
+
+Web sobe localmente com páginas placeholder.
+
+
+Worker executa sem erro.
+
+
+render.yaml existe e não contém segredos.
+
+
+.env.example existe e não contém segredos reais.
+
+
+README explica o setup local.
+
+
+A modelagem inicial separa corretamente tenant, brand, product, variant, inventory e order.
+
+
+Product não pertence diretamente a Brand.
+
+
+OrderItem possui campos de snapshot.
+
+
+InventoryItem possui separação entre estoque disponível e reservado.
+
+
+Não há acesso direto do frontend ao banco.
+
+
+Não há uso de filesystem local para arquivos de usuário.
+
+
+Comandos de validação:
+Executar ou garantir que os seguintes comandos estejam disponíveis e documentados:
+
+
+pnpm install
+
+
+pnpm --filter api build
+
+
+pnpm --filter web build
+
+
+pnpm --filter worker build
+
+
+pnpm --filter database prisma generate
+
+
+pnpm --filter database prisma validate
+
+
+pnpm lint
+
+
+pnpm test
+
+
+Caso algum comando não seja aplicável por ainda não haver testes reais, criar script placeholder consistente ou explicar claramente a decisão no resultado final.
+Resultado esperado:
+Ao finalizar, explique:
+
+
+Arquivos e pastas criados.
+
+
+Scripts disponíveis.
+
+
+Como rodar API, web e worker localmente.
+
+
+Como configurar DATABASE_URL e DIRECT_URL.
+
+
+Como executar Prisma generate e Prisma validate.
+
+
+Como usar o render.yaml inicial.
+
+
+Decisões técnicas tomadas.
+
+
+Riscos ou pendências técnicas.
+
+
+Próxima tarefa recomendada para a Fase 0.
+
+
+Importante:
+
+
+Não implemente a plataforma inteira.
+
+
+Não antecipe catálogo, pedidos, estoque transacional ou autenticação completa.
+
+
+Não crie complexidade desnecessária.
+
+
+Priorize fundação limpa, segurança, separação correta de domínio e baixo retrabalho.
+
+
+Qualquer decisão arquitetural relevante deve ser documentada no README ou no resumo final.
+
