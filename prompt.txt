@@ -1,838 +1,135 @@
-Próximo passo lógico: Fase 1 — MVP de catálogo e dropshipping: catálogo-base, SKUs e mídia.
-Não recomendo implementar pedidos agora. Antes disso, o sistema precisa ter produto-base, variações/SKUs, mídia e catálogo consultável pelo lojista. Isso respeita a regra central: produto-base não pertence diretamente à marca do lojista; marcas entram depois por configuração de personalização e pedidos com snapshot. 
 PROMPT PARA CLAUDE CODE SONNET
+
 Título:
-Implementar catálogo-base, SKUs e mídia de produtos para o MVP de dropshipping
+Corrigir autenticação, validação de tenant, concorrência de estoque e documentação antes de implementar pedidos
+
 Contexto:
-Estamos construindo uma plataforma B2B multi-tenant para dropshipping, white label e private label de bolsas e acessórios.
-A fundação técnica já deve existir com:
+A plataforma B2B multi-tenant de dropshipping, white label e private label já possui monorepo, NestJS, Next.js static export, Prisma, Neon PostgreSQL, Render single-service, autenticação, catálogo e estoque inicial.
 
+Foi feita auditoria do repositório e foram identificados problemas que devem ser corrigidos antes da implementação de pedido manual com reserva transacional de estoque.
 
-Monorepo com apps/web, apps/api, apps/worker, packages/database e packages/shared.
-
-
-Backend NestJS.
-
-
-Frontend Next.js.
-
-
-Prisma com Neon PostgreSQL.
-
-
-Autenticação JWT.
-
-
-Tenants.
-
-
-RBAC base.
-
-
-Deploy inicial em apenas um Web Service no Render.
-
-
-Worker mantido no monorepo, mas ainda não provisionado em produção.
-
-
-Agora estamos entrando na Fase 1 — MVP de catálogo e dropshipping.
-O objetivo desta fase é permitir que administradores cadastrem produtos-base e SKUs, e que lojistas autenticados visualizem o catálogo disponível para venda.
 Objetivo:
-Implementar o módulo inicial de catálogo com produtos-base, variantes/SKUs e mídia de produto, respeitando a arquitetura multi-tenant e a regra de que produtos-base pertencem à operação principal, não ao tenant nem à marca do lojista.
-Nesta tarefa, o catálogo deve permitir:
-
-
-CRUD administrativo de produtos-base.
-
-
-CRUD administrativo de variantes/SKUs.
-
-
-Cadastro administrativo de mídia por URL ou chave externa.
-
-
-Listagem de catálogo para lojistas autenticados.
-
-
-Visualização de detalhes de produto e variantes.
-
-
-Separação clara entre endpoints administrativos e endpoints de lojista.
-
+Corrigir falhas críticas na autenticação, validação multi-tenant, RBAC base, concorrência de estoque e documentação, mantendo o escopo fechado e sem implementar pedidos nesta tarefa.
 
 Antes de modificar:
 
-
 Inspecione a estrutura atual do repositório.
-
-
-Verifique o schema Prisma existente.
-
-
-Verifique como autenticação, tenants e RBAC foram implementados.
-
-
-Verifique se já existem guards, decorators e tipos de usuário autenticado.
-
-
-Verifique os padrões de módulos, controllers, services e DTOs existentes.
-
-
+Verifique AuthService, JwtStrategy, RolesGuard, CurrentTenant, TenantsService, CatalogController e InventoryService.
+Verifique o schema Prisma antes de alterar.
 Não reescreva partes não relacionadas.
-
-
-Não remova código existente sem necessidade.
-
-
+Não implemente pedidos nesta tarefa.
+Preserve o deploy single-service no Render.
 Não adicione segredos reais.
-
-
-Preserve o deploy em apenas um serviço no Render.
-
-
 Mantenha TypeScript estrito.
-
-
 Documente decisões relevantes.
-
 
 Escopo incluído:
 
-
-Implementar módulo CatalogModule no backend.
-
-
-Criar endpoints administrativos para produtos.
-
-
-Criar endpoints administrativos para variantes/SKUs.
-
-
-Criar endpoints administrativos para mídias de produto.
-
-
-Criar endpoints de leitura do catálogo para lojistas autenticados.
-
-
-Criar DTOs com validação.
-
-
-Criar services para regras de negócio.
-
-
-Criar filtros básicos por status, busca, SKU e categoria.
-
-
-Criar paginação simples.
-
-
-Atualizar schema Prisma se necessário.
-
-
-Criar migration se houver alteração no banco.
-
-
-Criar seeds de exemplo para produtos e SKUs.
-
-
-Criar páginas frontend simples para:
-
-
-listagem de catálogo;
-
-
-detalhe do produto;
-
-
-área administrativa básica de produtos, se a estrutura atual permitir.
-
-
-
-
-Atualizar README com instruções de teste do catálogo.
-
+Corrigir fluxo de refresh token.
+Criar validação real de tenant ativo por request.
+Criar guard reutilizável para contexto de tenant.
+Preparar RBAC por tenant sem overengineering.
+Aplicar validação de tenant no catálogo de lojista.
+Corrigir reserva/liberação/confirmação de estoque para reduzir risco de corrida concorrente.
+Adicionar testes unitários ou integrados para auth, tenant e estoque.
+Corrigir mensagens com encoding quebrado.
+Atualizar README para refletir o estado real do projeto.
 
 Escopo excluído:
 
-
-Não implementar reserva de estoque ainda.
-
-
-Não implementar pedido manual ainda.
-
-
-Não implementar carrinho.
-
-
-Não implementar checkout.
-
-
+Não implementar pedidos.
 Não implementar pagamento.
-
-
-Não implementar upload real para S3/R2 nesta tarefa.
-
-
-Não salvar arquivos no filesystem local.
-
-
-Não implementar personalização white label ainda.
-
-
+Não implementar fulfillment.
 Não implementar Brand Studio.
-
-
-Não implementar mockup automático.
-
-
-Não implementar private label.
-
-
-Não implementar sincronização com lojas externas.
-
-
-Não criar worker ou fila para catálogo.
-
-
+Não implementar white label.
+Não implementar worker.
 Não criar serviço adicional no Render.
-
+Não alterar arquitetura central sem justificar.
 
 Requisitos técnicos:
 
-
-Usar NestJS modular.
-
-
-Controllers devem lidar apenas com entrada e saída.
-
-
-Services devem conter regras de negócio.
-
-
-DTOs devem usar validação.
-
-
-Usar Prisma para acesso a dados.
-
-
-Usar guards de autenticação e RBAC já existentes.
-
-
-Endpoints administrativos devem exigir role adequada.
-
-
-Endpoints de lojista devem exigir usuário autenticado e tenant válido.
-
-
-Não vazar dados de outros tenants.
-
-
-Embora produto-base não pertença ao tenant, acesso ao catálogo deve exigir autenticação e tenant ativo.
-
-
-Não expor dados internos desnecessários ao lojista.
-
-
-Não expor preço de custo se houver campo de custo.
-
-
-Não colocar segredos no código.
-
-
-Não usar filesystem local para mídia.
-
-
-Manter compatibilidade com deploy single-service no Render.
-
-
-Regras de negócio:
-
-
-Produto-base pertence à operação principal.
-
-
-Produto-base não pertence diretamente a uma marca do lojista.
-
-
-Produto-base pode ter múltiplas variantes/SKUs.
-
-
-SKU representa uma variação vendável.
-
-
-Produto inativo ou arquivado não deve aparecer no catálogo do lojista.
-
-
-Variante inativa não deve aparecer como vendável.
-
-
-SKU deve ser único.
-
-
-Produto pode ter múltiplas mídias.
-
-
-Mídia deve ser referenciada por URL pública ou chave externa de storage.
-
-
-Nesta tarefa, mídia pode ser cadastrada manualmente por URL/key.
-
-
-Upload real para storage externo fica para tarefa futura.
-
-
-Lojista autenticado pode visualizar catálogo, mas não pode alterar produtos.
-
-
-Apenas admin autorizado pode criar, editar ou arquivar produtos.
-
-
-Não criar vínculo obrigatório entre Product e Brand.
-
-
-A estrutura deve permitir futuramente opções de personalização por produto.
-
-
-Banco de dados:
-Inspecionar os modelos existentes e ajustar somente se necessário.
-Garantir que existam ou sejam completados os modelos:
-Product:
-
-
-id
-
-
-name
-
-
-slug
-
-
-description
-
-
-status
-
-
-category
-
-
-basePrice ou salePrice, conforme padrão existente
-
-
-costPrice, opcional e visível apenas para admin
-
-
-createdAt
-
-
-updatedAt
-
-
-ProductVariant:
-
-
-id
-
-
-productId
-
-
-sku
-
-
-name
-
-
-color
-
-
-material
-
-
-size
-
-
-hardware
-
-
-salePrice
-
-
-costPrice, opcional e visível apenas para admin
-
-
-weightGrams, opcional
-
-
-status
-
-
-createdAt
-
-
-updatedAt
-
-
-ProductMedia:
-
-
-id
-
-
-productId
-
-
-variantId, opcional
-
-
-url
-
-
-storageKey, opcional
-
-
-altText
-
-
-sortOrder
-
-
-createdAt
-
-
-updatedAt
-
-
-CustomizationOption e ProductCustomizationOption:
-
-
-Não implementar regra avançada agora.
-
-
-Apenas preservar ou preparar relacionamento se já existir.
-
-
-Não bloquear catálogo por personalização.
-
-
-Índices e constraints:
-
-
-Product.slug único.
-
-
-Product.status indexado.
-
-
-Product.category indexado, se existir.
-
-
-Product.createdAt indexado.
-
-
-ProductVariant.sku único.
-
-
-ProductVariant.productId indexado.
-
-
-ProductVariant.status indexado.
-
-
-ProductMedia.productId indexado.
-
-
-ProductMedia.variantId indexado, se existir.
-
+Refresh token deve ser tratado como token opaco, não como JWT, se mantida a estratégia atual.
+Refresh token deve continuar salvo apenas como hash SHA-256 no banco.
+Refresh deve validar:
+hash existente;
+token não revogado;
+token não expirado;
+usuário ativo.
+Refresh deve rotacionar token.
+Access token continua sendo JWT.
+Criar TenantContextGuard ou equivalente.
+Guard deve validar X-Tenant-ID.
+Guard deve verificar se o usuário pertence ao tenant por TenantUser.
+Guard deve rejeitar tenant inativo.
+Guard deve anexar tenant validado ao request.
+Criar decorator @CurrentTenant() retornando tenant validado, não apenas header bruto.
+Não depender de Redis.
+Não salvar secrets no código.
+
+Requisitos de estoque:
+
+Ajustar reserveStockInTransaction para evitar overbooking concorrente.
+Preferir operação atômica com updateMany usando condição quantityAvailable >= qty.
+Se a atualização condicional não afetar exatamente um registro, lançar erro de estoque insuficiente.
+Criar movimentação somente após atualização bem-sucedida.
+Revisar releaseReservationInTransaction e commitReservationInTransaction com validações equivalentes.
+Manter todas as operações transacionais compatíveis com uso futuro pelo módulo de pedidos.
 
 Backend:
-Criar ou completar estrutura em:
 
+Arquivos prováveis:
 
-apps/api/src/modules/catalog/catalog.module.ts
-
-
+apps/api/src/modules/auth/auth.service.ts
+apps/api/src/modules/auth/strategies/jwt.strategy.ts
+apps/api/src/modules/auth/guards/roles.guard.ts
+apps/api/src/modules/auth/guards/tenant-context.guard.ts
+apps/api/src/modules/auth/guards/tenant-roles.guard.ts, se necessário
+apps/api/src/modules/auth/decorators/current-tenant.decorator.ts
+apps/api/src/common/types/authenticated-user.type.ts
+apps/api/src/modules/tenants/tenants.service.ts
 apps/api/src/modules/catalog/catalog.controller.ts
+apps/api/src/modules/inventory/inventory.service.ts
 
-
-apps/api/src/modules/catalog/admin-products.controller.ts
-
-
-apps/api/src/modules/catalog/admin-variants.controller.ts
-
-
-apps/api/src/modules/catalog/catalog.service.ts
-
-
-apps/api/src/modules/catalog/dto/create-product.dto.ts
-
-
-apps/api/src/modules/catalog/dto/update-product.dto.ts
-
-
-apps/api/src/modules/catalog/dto/create-product-variant.dto.ts
-
-
-apps/api/src/modules/catalog/dto/update-product-variant.dto.ts
-
-
-apps/api/src/modules/catalog/dto/create-product-media.dto.ts
-
-
-apps/api/src/modules/catalog/dto/list-products-query.dto.ts
-
-
-Endpoints administrativos:
-
-
-POST /api/admin/products
-
-
-GET /api/admin/products
-
-
-GET /api/admin/products/:id
-
-
-PATCH /api/admin/products/:id
-
-
-DELETE /api/admin/products/:id ou PATCH /api/admin/products/:id/archive
-
-
-POST /api/admin/products/:productId/variants
-
-
-PATCH /api/admin/products/:productId/variants/:variantId
-
-
-POST /api/admin/products/:productId/media
-
-
-DELETE /api/admin/products/:productId/media/:mediaId
-
-
-Endpoints para lojista:
-
-
-GET /api/catalog/products
-
-
-GET /api/catalog/products/:slug
-
-
-GET /api/catalog/variants/:sku, opcional se fizer sentido
-
-
-Requisitos dos endpoints administrativos:
-
-
-Exigir autenticação.
-
-
-Exigir role administrativa.
-
-
-Validar payload com DTO.
-
-
-Impedir SKU duplicado.
-
-
-Permitir arquivar/desativar produto sem apagar dados críticos.
-
-
-Não apagar produto fisicamente se isso puder comprometer histórico futuro.
-
-
-Retornar erros claros para produto não encontrado, SKU duplicado e payload inválido.
-
-
-Requisitos dos endpoints de catálogo para lojista:
-
-
-Exigir autenticação.
-
-
-Exigir tenant ativo/válido.
-
-
-Retornar apenas produtos ativos.
-
-
-Retornar apenas variantes ativas.
-
-
-Não retornar costPrice.
-
-
-Não retornar campos internos desnecessários.
-
-
-Suportar paginação.
-
-
-Suportar busca por nome, categoria ou SKU.
-
-
-Não permitir alteração de dados.
-
-
-Frontend:
-Criar ou atualizar em apps/web:
-
-
-Página /dashboard/catalog
-
-
-Página /dashboard/catalog/[slug]
-
-
-Opcionalmente página administrativa simples:
-
-
-/dashboard/admin/products
-
-
-/dashboard/admin/products/new
-
-
-/dashboard/admin/products/[id]
-
-
-
-
-Se o frontend administrativo aumentar demais o escopo, priorizar apenas:
-
-
-listagem de catálogo para lojista;
-
-
-detalhe do produto;
-
-
-integração com endpoints de leitura.
-
-
-Requisitos frontend:
-
-
-Usar API client existente.
-
-
-Não acessar banco diretamente.
-
-
-Não expor segredos.
-
-
-Tratar loading state.
-
-
-Tratar empty state.
-
-
-Tratar error state.
-
-
-Não colocar regra de negócio pesada no componente.
-
-
-Não exibir custo para lojista.
-
-
-Exibir produto, descrição, imagens e SKUs disponíveis.
-
-
-Usar layout simples e funcional.
-
-
-Testes:
-Criar testes backend para:
-
-
-Admin cria produto com payload válido.
-
-
-Admin não consegue criar SKU duplicado.
-
-
-Usuário sem role admin não cria produto.
-
-
-Catálogo de lojista lista apenas produtos ativos.
-
-
-Catálogo de lojista não retorna costPrice.
-
-
-Produto inativo não aparece para lojista.
-
-
-Variante inativa não aparece como vendável.
-
-
-Se a estrutura de testes ainda estiver limitada, criar testes mínimos do service ou documentar pendência.
 Critérios de aceitação:
 
-
-Admin autenticado consegue criar produto-base.
-
-
-Admin autenticado consegue criar SKU/variante.
-
-
-SKU duplicado é rejeitado.
-
-
-Admin consegue cadastrar mídia por URL ou storage key.
-
-
-Produto pode ser listado no endpoint administrativo.
-
-
-Produto ativo aparece no catálogo do lojista.
-
-
-Produto inativo ou arquivado não aparece no catálogo do lojista.
-
-
-Variante ativa aparece no detalhe do produto.
-
-
-Variante inativa não aparece como vendável para lojista.
-
-
-Lojista não consegue criar, editar ou arquivar produtos.
-
-
-Endpoint de lojista não retorna costPrice.
-
-
-Product não possui relação obrigatória com Brand.
-
-
-Schema Prisma valida.
-
-
-Migration roda sem destruir dados.
-
-
-Seed cria produtos e SKUs de exemplo.
-
-
-Frontend exibe catálogo com loading, empty e error states.
-
-
-Deploy single-service no Render permanece preservado.
-
-
-Nenhum arquivo é salvo no filesystem local.
-
+/api/auth/refresh funciona com o refresh token retornado pelo login.
+Refresh token antigo é revogado após rotação.
+Refresh token revogado não pode ser reutilizado.
+Refresh token expirado é rejeitado.
+Usuário inativo não consegue renovar token.
+Rotas tenant-scoped rejeitam ausência de X-Tenant-ID.
+Rotas tenant-scoped rejeitam tenant que não pertence ao usuário.
+Rotas tenant-scoped rejeitam tenant inativo.
+Catálogo de lojista usa validação real de tenant.
+reserveStockInTransaction não permite overbooking em concorrência básica.
+Operações de estoque continuam criando InventoryMovement.
+Testes cobrem refresh token, tenant guard e reserva de estoque.
+README reflete que auth, catálogo e estoque já existem parcialmente.
+Nenhum segredo é commitado.
+Deploy single-service permanece preservado.
 
 Comandos de validação:
 
-
 pnpm install
-
-
-pnpm --filter database prisma generate
-
-
-pnpm --filter database prisma validate
-
-
-pnpm --filter database prisma migrate dev
-
-
-pnpm --filter database prisma db seed
-
-
+pnpm db:generate
+pnpm db:validate
 pnpm --filter api build
-
-
 pnpm --filter api test
-
-
 pnpm --filter web build
-
-
 pnpm lint
-
-
 pnpm test
 
-
 Resultado esperado:
+
 Ao finalizar, explique:
 
-
-Arquivos criados e alterados.
-
-
-Alterações feitas no schema Prisma.
-
-
-Migration criada, se houver.
-
-
-Seeds adicionados.
-
-
-Endpoints administrativos implementados.
-
-
-Endpoints de catálogo implementados.
-
-
-Como testar criação de produto.
-
-
-Como testar criação de SKU.
-
-
-Como testar listagem do catálogo como lojista.
-
-
-Como foi garantido que costPrice não vaza para lojista.
-
-
-Como foi preservada a regra de que produto-base não pertence à marca.
-
-
-Como testar o frontend.
-
-
-Pendências técnicas.
-
-
-Próxima tarefa recomendada.
-
-
-Observações importantes:
-
-
-Não implemente pedidos nesta tarefa.
-
-
-Não implemente estoque transacional nesta tarefa.
-
-
-Não implemente white label nesta tarefa.
-
-
-Não implemente upload real nesta tarefa.
-
-
-Não crie serviço separado no Render.
-
-
-Não permita que produto pertença diretamente a brand.
-
-
-Não retorne preço de custo para lojistas.
-
-
-Não use delete físico para dados que poderão ter histórico comercial no futuro.
-
+Arquivos alterados.
+Como o refresh token foi corrigido.
+Como o tenant agora é validado.
+Como o RBAC por tenant ficou preparado.
+Como o estoque foi protegido contra concorrência.
+Quais testes foram criados.
+Como testar login, refresh e tenant inválido manualmente.
+Como testar reserva de estoque.
+Pendências restantes.
+Se o projeto está pronto para o prompt de pedido manual.

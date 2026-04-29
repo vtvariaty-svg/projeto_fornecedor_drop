@@ -8,7 +8,6 @@ import {
   CreateManualOrderPayload,
 } from "../../../../../services/orders.service";
 import { catalogService, ProductData } from "../../../../../services/catalog.service";
-import { authStorage } from "../../../../../services/auth.service";
 
 interface SelectedItem {
   variantId: string;
@@ -57,11 +56,12 @@ export default function NewOrderPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    catalogService.publicList({ page: 1, limit: 50 })
+    if (!tenantId) return;
+    catalogService.list(tenantId, { page: 1, limit: 50 })
       .then((res) => setCatalog(res.items))
       .catch(() => setCatalog([]))
       .finally(() => setCatalogLoading(false));
-  }, []);
+  }, [tenantId]);
 
   function addVariant(
     variantId: string,
@@ -127,7 +127,7 @@ export default function NewOrderPage() {
         items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
       };
       const order = await ordersService.createManual(tenantId, payload);
-      router.push(`/dashboard/orders/${order.id}`);
+      router.push(`/dashboard/orders?id=${order.id}`);
     } catch (e) {
       setError((e as Error).message);
       setSubmitting(false);
