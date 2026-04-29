@@ -1,40 +1,29 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-  BadRequestException,
-} from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { TenantContextGuard } from "../auth/guards/tenant-context.guard";
 import { CurrentTenant } from "../auth/decorators/current-tenant.decorator";
-import { AuthenticatedUser } from "../../common/types/authenticated-user.type";
+import { TenantContext } from "../../common/types/tenant-context.type";
 import { CatalogService } from "./catalog.service";
 import { ListProductsQueryDto } from "./dto/list-products-query.dto";
 
 @Controller("catalog/products")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantContextGuard)
 export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}
 
   @Get()
   list(
     @Query() query: ListProductsQueryDto,
-    @CurrentUser() _user: AuthenticatedUser,
-    @CurrentTenant() tenantId: string
+    @CurrentTenant() _tenant: TenantContext
   ): Promise<unknown> {
-    if (!tenantId) throw new BadRequestException("Header X-Tenant-ID obrigatório");
     return this.catalog.publicList(query);
   }
 
   @Get(":slug")
   getBySlug(
     @Param("slug") slug: string,
-    @CurrentUser() _user: AuthenticatedUser,
-    @CurrentTenant() tenantId: string
+    @CurrentTenant() _tenant: TenantContext
   ): Promise<unknown> {
-    if (!tenantId) throw new BadRequestException("Header X-Tenant-ID obrigatório");
     return this.catalog.publicGetBySlug(slug);
   }
 }

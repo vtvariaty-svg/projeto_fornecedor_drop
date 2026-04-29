@@ -194,7 +194,7 @@ pnpm lint
 pnpm test
 ```
 
-> Testes são placeholders nesta fase — serão implementados com os módulos de negócio.
+Cobertura atual: auth (login, refresh, me), TenantContextGuard, inventory (reserva, liberação, confirmação atômica).
 
 ---
 
@@ -253,13 +253,40 @@ O filesystem do Render é efêmero. Use storage S3-compatible externo via `STORA
 
 ---
 
+## Módulos Implementados
+
+### Auth (`/auth`)
+- `POST /auth/login` — retorna accessToken (JWT 15 min) + refreshToken (opaco, 7 dias)
+- `POST /auth/refresh` — rotação de token: revoga o antigo, emite novo par
+- `POST /auth/logout` — revoga o refreshToken corrente
+- `GET /auth/me` — retorna usuário autenticado e tenants ativos
+
+Refresh tokens são armazenados apenas como hash SHA-256. A rotação invalida o token anterior imediatamente.
+
+### Multi-tenant (`TenantContextGuard`)
+Rotas tenant-scoped exigem header `X-Tenant-ID`. O guard valida:
+1. Header presente
+2. Usuário pertence ao tenant (`TenantUser.isActive = true`)
+3. Status do tenant é `ACTIVE`
+
+O contexto validado é injetado via `@CurrentTenant()`.
+
+### Catalog (`/catalog/products`, `/admin/products`)
+- Listagem pública e detalhe por slug (tenant-scoped)
+- Admin CRUD: criar produto, criar variante, publicar/despublicar
+
+### Inventory (`/admin/inventory`)
+- Controle de estoque por variante (`quantityAvailable`, `quantityReserved`)
+- Ajustes manuais com log de movimentações
+- Reserva / liberação / confirmação atômicas via `updateMany` com WHERE condicional (previne overbooking sob concorrência)
+
+---
+
 ## Pendências para Próximas Fases
 
-- [ ] Implementar autenticação JWT com refresh token
-- [ ] Implementar RBAC por tenant
-- [ ] Implementar módulos de catálogo, pedidos e estoque
+- [ ] Implementar módulo de pedidos (orders)
+- [ ] Implementar RBAC completo por tenant (roles)
 - [ ] Configurar BullMQ + Redis e ativar worker no Render
 - [ ] Configurar storage S3-compatible para upload de assets
 - [ ] Implementar white label e private label
-- [ ] Adicionar testes unitários e de integração
 - [ ] Avaliar migração para Next.js servidor se SSR for necessário

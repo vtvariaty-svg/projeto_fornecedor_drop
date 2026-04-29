@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
@@ -29,21 +29,18 @@ export class AuthService {
     private readonly config: ConfigService
   ) {}
 
-  // â”€â”€â”€ Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Login ---
 
   async login(dto: LoginDto, req?: Request) {
     const user = await this.users.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException("Credenciais invÃ¡lidas");
-    if (!user.isActive) throw new ForbiddenException("UsuÃ¡rio inativo");
+    if (!user) throw new UnauthorizedException("Credenciais invalidas");
+    if (!user.isActive) throw new ForbiddenException("Usuario inativo");
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException("Credenciais invÃ¡lidas");
+    if (!valid) throw new UnauthorizedException("Credenciais invalidas");
 
     const tenants = await this.getTenantsForUser(user.id);
-    const { accessToken, refreshToken } = await this.generateTokenPair(
-      user,
-      req
-    );
+    const { accessToken, refreshToken } = await this.generateTokenPair(user, req);
 
     return {
       accessToken,
@@ -53,50 +50,49 @@ export class AuthService {
     };
   }
 
-  // â”€â”€â”€ Refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Refresh ---
+  // O refresh token e um token opaco (bytes aleatorios) salvo apenas como hash SHA-256.
+  // Nao e um JWT — a validacao e feita exclusivamente via lookup no banco.
 
   async refresh(rawToken: string, req?: Request) {
-    // Verificar assinatura JWT do refresh token
-    let payload: { sub: string };
-    try {
-      payload = this.jwt.verify<{ sub: string }>(rawToken, {
-        secret: this.config.getOrThrow<string>("JWT_REFRESH_SECRET"),
-      });
-    } catch {
-      throw new UnauthorizedException("Refresh token invÃ¡lido ou expirado");
-    }
-
     const tokenHash = this.hashToken(rawToken);
 
     const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
+      include: {
+        user: {
+          select: { id: true, email: true, role: true, isActive: true },
+        },
+      },
     });
 
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException("Refresh token revogado ou expirado");
+    if (!stored) {
+      throw new UnauthorizedException("Refresh token invalido");
+    }
+    if (stored.revokedAt) {
+      throw new UnauthorizedException("Refresh token revogado");
+    }
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedException("Refresh token expirado");
+    }
+    if (!stored.user.isActive) {
+      throw new UnauthorizedException("Usuario inativo");
     }
 
-    if (stored.userId !== payload.sub) {
-      throw new UnauthorizedException("Token invÃ¡lido");
-    }
-
-    // Revogar token atual e emitir novo par (rotaÃ§Ã£o)
+    // Rotacao: revogar token atual antes de emitir novo par
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
     });
 
-    const user = await this.users.findById(payload.sub);
-    if (!user || !user.isActive) throw new UnauthorizedException();
-
     const { accessToken, refreshToken } = await this.generateTokenPair(
-      user,
+      stored.user,
       req
     );
     return { accessToken, refreshToken };
   }
 
-  // â”€â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Logout ---
 
   async logout(rawToken: string) {
     const tokenHash = this.hashToken(rawToken);
@@ -106,12 +102,12 @@ export class AuthService {
         data: { revokedAt: new Date() },
       })
       .catch(() => {
-        // token jÃ¡ revogado ou inexistente â€” ignorar silenciosamente
+        // token ja revogado ou inexistente — ignorar silenciosamente
       });
     return { ok: true };
   }
 
-  // â”€â”€â”€ Me â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Me ---
 
   async me(authUser: AuthenticatedUser) {
     const user = await this.users.findById(authUser.id);
@@ -120,7 +116,7 @@ export class AuthService {
     return { user: this.safeUser(user), tenants };
   }
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Helpers ---
 
   private async generateTokenPair(
     user: { id: string; email: string; role: UserRole },
@@ -137,6 +133,7 @@ export class AuthService {
       expiresIn: this.config.get<string>("JWT_ACCESS_EXPIRES_IN", "15m"),
     });
 
+    // Refresh token: token opaco, salvo como hash SHA-256
     const rawRefresh = randomBytes(64).toString("hex");
     const tokenHash = this.hashToken(rawRefresh);
     const expiresIn = this.config.get<string>("JWT_REFRESH_EXPIRES_IN", "7d");

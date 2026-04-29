@@ -1,11 +1,11 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { Request } from "express";
+import { TenantContext } from "../../../common/types/tenant-context.type";
 
-// Extrai o tenant ativo do header X-Tenant-ID.
-// Validação de acesso do usuário ao tenant é responsabilidade do service.
+// Retorna o tenant validado pelo TenantContextGuard (id, name, slug, status, role).
+// Requer que TenantContextGuard seja aplicado na rota antes deste decorator.
 export const CurrentTenant = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): string | undefined => {
-    const req = ctx.switchToHttp().getRequest<Request>();
-    return req.headers["x-tenant-id"] as string | undefined;
+  (_data: unknown, ctx: ExecutionContext): TenantContext => {
+    const req = ctx.switchToHttp().getRequest<{ tenant: TenantContext }>();
+    return req.tenant;
   }
 );

@@ -1,10 +1,10 @@
-﻿import { Test, TestingModule } from "@nestjs/testing";
+import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { InventoryService } from "./inventory.service";
 import { PrismaService } from "../../common/prisma.service";
 import { InventoryMovementType } from "@prisma/client";
 
-// â”€â”€â”€ Mock helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Mock helpers ---
 
 const mockItem = {
   id: "item-1",
@@ -23,12 +23,38 @@ const mockVariant = {
   product: { id: "prod-1", name: "Produto Teste", slug: "produto-teste" },
 };
 
+function makeTxMock() {
+  return {
+    inventoryItem: {
+      findUnique: jest.fn().mockResolvedValue(mockItem),
+      create: jest.fn().mockResolvedValue(mockItem),
+      update: jest.fn().mockImplementation(
+        ({ data }: { data: { quantityAvailable?: { increment?: number; decrement?: number } } }) => {
+          const updated = { ...mockItem };
+          if (data.quantityAvailable?.increment !== undefined) {
+            updated.quantityAvailable = mockItem.quantityAvailable + data.quantityAvailable.increment;
+          }
+          if (data.quantityAvailable?.decrement !== undefined) {
+            updated.quantityAvailable = mockItem.quantityAvailable - data.quantityAvailable.decrement;
+          }
+          return Promise.resolve(updated);
+        }
+      ),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    inventoryMovement: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+  };
+}
+
 function makePrismaMock() {
   return {
     inventoryItem: {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       count: jest.fn(),
     },
     inventoryMovement: {
@@ -45,29 +71,7 @@ function makePrismaMock() {
   };
 }
 
-function makeTxMock() {
-  return {
-    inventoryItem: {
-      findUnique: jest.fn().mockResolvedValue(mockItem),
-      create: jest.fn().mockResolvedValue(mockItem),
-      update: jest.fn().mockImplementation(({ data }: { data: { quantityAvailable?: { increment?: number; decrement?: number }; quantityReserved?: { increment?: number; decrement?: number } } }) => {
-        const updated = { ...mockItem };
-        if (data.quantityAvailable?.increment !== undefined) {
-          updated.quantityAvailable = mockItem.quantityAvailable + data.quantityAvailable.increment;
-        }
-        if (data.quantityAvailable?.decrement !== undefined) {
-          updated.quantityAvailable = mockItem.quantityAvailable - data.quantityAvailable.decrement;
-        }
-        return Promise.resolve(updated);
-      }),
-    },
-    inventoryMovement: {
-      create: jest.fn().mockResolvedValue({}),
-    },
-  };
-}
-
-// â”€â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Tests ---
 
 describe("InventoryService", () => {
   let service: InventoryService;
@@ -86,7 +90,7 @@ describe("InventoryService", () => {
     service = module.get<InventoryService>(InventoryService);
   });
 
-  // â”€â”€ createInventoryIfMissing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- createInventoryIfMissing --
 
   describe("createInventoryIfMissing", () => {
     it("retorna item existente sem criar novo", async () => {
@@ -96,7 +100,7 @@ describe("InventoryService", () => {
       expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
     });
 
-    it("cria item com quantidade zero quando nÃ£o existe", async () => {
+    it("cria item com quantidade zero quando nao existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.inventoryItem.create.mockResolvedValue({ ...mockItem, quantityAvailable: 0 });
       const result = await service.createInventoryIfMissing("variant-1");
@@ -107,60 +111,56 @@ describe("InventoryService", () => {
     });
   });
 
-  // â”€â”€ adjustInventory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- adjustInventory --
 
   describe("adjustInventory", () => {
     it("ADJUSTMENT_IN aumenta quantityAvailable e cria movement", async () => {
-      const dto = {
-        type: InventoryMovementType.ADJUSTMENT_IN,
-        quantity: 10,
-        reason: "ReposiÃ§Ã£o",
-      };
+      const dto = { type: InventoryMovementType.ADJUSTMENT_IN, quantity: 10, reason: "Reposicao" };
 
       const result = await service.adjustInventory("variant-1", dto, "user-1");
 
-      // O $transaction foi chamado
       expect(prisma.$transaction).toHaveBeenCalled();
-      // delta positivo
       expect(result.adjustment.delta).toBe(10);
     });
 
     it("ADJUSTMENT_OUT reduz quantityAvailable e cria movement", async () => {
-      const dto = {
-        type: InventoryMovementType.ADJUSTMENT_OUT,
-        quantity: 5,
-        reason: "Descarte",
-      };
+      const dto = { type: InventoryMovementType.ADJUSTMENT_OUT, quantity: 5, reason: "Descarte" };
 
       const result = await service.adjustInventory("variant-1", dto, "user-1");
+
       expect(result.adjustment.delta).toBe(-5);
     });
 
-    it("ADJUSTMENT_OUT maior que disponÃ­vel lanÃ§a BadRequestException", async () => {
-      const dto = {
-        type: InventoryMovementType.ADJUSTMENT_OUT,
-        quantity: 999, // maior que os 20 do mockItem
-        reason: "Erro intencional",
-      };
+    it("ADJUSTMENT_OUT maior que disponivel lanca BadRequestException", async () => {
+      prisma.$transaction.mockImplementationOnce(async (cb: (tx: unknown) => unknown) => {
+        const tx = makeTxMock();
+        tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+        return cb(tx);
+      });
 
       await expect(
-        service.adjustInventory("variant-1", dto, "user-1")
+        service.adjustInventory(
+          "variant-1",
+          { type: InventoryMovementType.ADJUSTMENT_OUT, quantity: 999, reason: "Erro intencional" },
+          "user-1"
+        )
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("MANUAL_CORRECTION maior que disponÃ­vel lanÃ§a BadRequestException", async () => {
-      const dto = {
-        type: InventoryMovementType.MANUAL_CORRECTION,
-        quantity: 100,
-      };
+    it("MANUAL_CORRECTION maior que disponivel lanca BadRequestException", async () => {
+      prisma.$transaction.mockImplementationOnce(async (cb: (tx: unknown) => unknown) => {
+        const tx = makeTxMock();
+        tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+        return cb(tx);
+      });
 
       await expect(
-        service.adjustInventory("variant-1", dto)
+        service.adjustInventory("variant-1", { type: InventoryMovementType.MANUAL_CORRECTION, quantity: 100 })
       ).rejects.toThrow(BadRequestException);
     });
   });
 
-  // â”€â”€ getInventoryByVariantId â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- getInventoryByVariantId --
 
   describe("getInventoryByVariantId", () => {
     it("retorna item com variant quando existe", async () => {
@@ -171,7 +171,7 @@ describe("InventoryService", () => {
       expect(result).toEqual(itemWithVariant);
     });
 
-    it("retorna item virtual com quantidades zero quando inventÃ¡rio nÃ£o existe mas variante existe", async () => {
+    it("retorna item virtual com quantidades zero quando inventario nao existe mas variante existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.productVariant.findUnique.mockResolvedValue(mockVariant);
 
@@ -181,7 +181,7 @@ describe("InventoryService", () => {
       expect(result.id).toBeNull();
     });
 
-    it("lanÃ§a NotFoundException quando variante nÃ£o existe", async () => {
+    it("lanca NotFoundException quando variante nao existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.productVariant.findUnique.mockResolvedValue(null);
 
@@ -191,22 +191,27 @@ describe("InventoryService", () => {
     });
   });
 
-  // â”€â”€ reserveStockInTransaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- reserveStockInTransaction --
 
   describe("reserveStockInTransaction", () => {
-    it("lanÃ§a BadRequestException quando reserva excede disponÃ­vel", async () => {
+    it("usa updateMany com condicao atomica de estoque disponivel", async () => {
       const tx = makeTxMock();
-      // item com apenas 5 disponÃ­veis
-      tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityAvailable: 5 });
 
-      await expect(
-        service.reserveStockInTransaction("variant-1", 10, "order-1", tx as never)
-      ).rejects.toThrow(BadRequestException);
+      await service.reserveStockInTransaction("variant-1", 5, "order-1", tx as never);
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ quantityAvailable: { gte: 5 } }),
+          data: expect.objectContaining({
+            quantityAvailable: { decrement: 5 },
+            quantityReserved: { increment: 5 },
+          }),
+        })
+      );
     });
 
-    it("cria movement do tipo RESERVATION quando reserva Ã© vÃ¡lida", async () => {
+    it("cria movement do tipo RESERVATION quando reserva e valida", async () => {
       const tx = makeTxMock();
-      tx.inventoryItem.findUnique.mockResolvedValue(mockItem); // 20 disponÃ­veis
 
       await service.reserveStockInTransaction("variant-1", 5, "order-1", tx as never);
 
@@ -216,17 +221,93 @@ describe("InventoryService", () => {
         })
       );
     });
+
+    it("lanca BadRequestException quando updateMany nao encontra linha (estoque insuficiente)", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.reserveStockInTransaction("variant-1", 10, "order-1", tx as never)
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
-  // â”€â”€ releaseReservationInTransaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // -- releaseReservationInTransaction --
 
   describe("releaseReservationInTransaction", () => {
-    it("lanÃ§a BadRequestException quando nÃ£o hÃ¡ reserva suficiente para liberar", async () => {
+    it("usa updateMany com condicao atomica de reserva", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 10 });
+
+      await service.releaseReservationInTransaction("variant-1", 5, "order-1", tx as never);
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ quantityReserved: { gte: 5 } }),
+          data: expect.objectContaining({
+            quantityAvailable: { increment: 5 },
+            quantityReserved: { decrement: 5 },
+          }),
+        })
+      );
+    });
+
+    it("lanca BadRequestException quando nao ha reserva suficiente para liberar", async () => {
       const tx = makeTxMock();
       tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 0 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         service.releaseReservationInTransaction("variant-1", 5, "order-1", tx as never)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("lanca NotFoundException quando inventario nao existe", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.releaseReservationInTransaction("variant-1", 5, "order-1", tx as never)
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // -- commitReservationInTransaction --
+
+  describe("commitReservationInTransaction", () => {
+    it("debita de quantityReserved sem alterar quantityAvailable", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 10 });
+
+      await service.commitReservationInTransaction("variant-1", 5, "order-1", tx as never);
+
+      expect(tx.inventoryItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ quantityReserved: { decrement: 5 } }),
+        })
+      );
+    });
+
+    it("cria movement do tipo COMMIT_RESERVATION", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 10 });
+
+      await service.commitReservationInTransaction("variant-1", 5, "order-1", tx as never);
+
+      expect(tx.inventoryMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: InventoryMovementType.COMMIT_RESERVATION }),
+        })
+      );
+    });
+
+    it("lanca BadRequestException quando reserva e insuficiente", async () => {
+      const tx = makeTxMock();
+      tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 3 });
+      tx.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.commitReservationInTransaction("variant-1", 5, "order-1", tx as never)
       ).rejects.toThrow(BadRequestException);
     });
   });
