@@ -96,6 +96,18 @@ export default function DashboardPage() {
               >
                 🛍 Ver Catálogo
               </button>
+              <button
+                onClick={() => router.push("/dashboard/orders")}
+                style={styles.quickBtn}
+              >
+                📦 Meus Pedidos
+              </button>
+              <button
+                onClick={() => router.push("/dashboard/orders/new")}
+                style={{ ...styles.quickBtn, background: "#166534" }}
+              >
+                + Novo Pedido
+              </button>
             </div>
           </section>
         )}
