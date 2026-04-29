@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Get,
   Post,
@@ -10,7 +10,7 @@ import {
   HttpStatus,
   Request,
 } from "@nestjs/common";
-import { UserRole } from "@drop/database";
+import { UserRole } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -28,7 +28,7 @@ export class InventoryController {
 
   /**
    * GET /api/admin/inventory
-   * Lista estoque de todos os SKUs com paginação e busca.
+   * Lista estoque de todos os SKUs com paginaÃ§Ã£o e busca.
    */
   @Get()
   list(@Query() query: ListInventoryQueryDto) {
@@ -37,7 +37,7 @@ export class InventoryController {
 
   /**
    * GET /api/admin/inventory/:variantId
-   * Detalhe do estoque de um SKU específico.
+   * Detalhe do estoque de um SKU especÃ­fico.
    */
   @Get(":variantId")
   getByVariant(@Param("variantId") variantId: string) {
@@ -46,7 +46,7 @@ export class InventoryController {
 
   /**
    * GET /api/admin/inventory/:variantId/movements
-   * Histórico de movimentações do SKU.
+   * HistÃ³rico de movimentaÃ§Ãµes do SKU.
    */
   @Get(":variantId/movements")
   movements(
@@ -58,7 +58,7 @@ export class InventoryController {
 
   /**
    * POST /api/admin/inventory/:variantId/adjust
-   * Ajuste manual de estoque (entrada, saída ou correção).
+   * Ajuste manual de estoque (entrada, saÃ­da ou correÃ§Ã£o).
    */
   @Post(":variantId/adjust")
   @HttpCode(HttpStatus.OK)

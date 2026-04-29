@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
@@ -9,7 +9,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { UsersService } from "../users/users.service";
 import { LoginDto } from "./dto/login.dto";
 import { AuthenticatedUser } from "../../common/types/authenticated-user.type";
-import { UserRole } from "@drop/database";
+import { UserRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
 import { Request } from "express";
@@ -29,15 +29,15 @@ export class AuthService {
     private readonly config: ConfigService
   ) {}
 
-  // ─── Login ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async login(dto: LoginDto, req?: Request) {
     const user = await this.users.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException("Credenciais inválidas");
-    if (!user.isActive) throw new ForbiddenException("Usuário inativo");
+    if (!user) throw new UnauthorizedException("Credenciais invÃ¡lidas");
+    if (!user.isActive) throw new ForbiddenException("UsuÃ¡rio inativo");
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException("Credenciais inválidas");
+    if (!valid) throw new UnauthorizedException("Credenciais invÃ¡lidas");
 
     const tenants = await this.getTenantsForUser(user.id);
     const { accessToken, refreshToken } = await this.generateTokenPair(
@@ -53,7 +53,7 @@ export class AuthService {
     };
   }
 
-  // ─── Refresh ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async refresh(rawToken: string, req?: Request) {
     // Verificar assinatura JWT do refresh token
@@ -63,7 +63,7 @@ export class AuthService {
         secret: this.config.getOrThrow<string>("JWT_REFRESH_SECRET"),
       });
     } catch {
-      throw new UnauthorizedException("Refresh token inválido ou expirado");
+      throw new UnauthorizedException("Refresh token invÃ¡lido ou expirado");
     }
 
     const tokenHash = this.hashToken(rawToken);
@@ -77,10 +77,10 @@ export class AuthService {
     }
 
     if (stored.userId !== payload.sub) {
-      throw new UnauthorizedException("Token inválido");
+      throw new UnauthorizedException("Token invÃ¡lido");
     }
 
-    // Revogar token atual e emitir novo par (rotação)
+    // Revogar token atual e emitir novo par (rotaÃ§Ã£o)
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
@@ -96,7 +96,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  // ─── Logout ──────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async logout(rawToken: string) {
     const tokenHash = this.hashToken(rawToken);
@@ -106,12 +106,12 @@ export class AuthService {
         data: { revokedAt: new Date() },
       })
       .catch(() => {
-        // token já revogado ou inexistente — ignorar silenciosamente
+        // token jÃ¡ revogado ou inexistente â€” ignorar silenciosamente
       });
     return { ok: true };
   }
 
-  // ─── Me ──────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Me â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async me(authUser: AuthenticatedUser) {
     const user = await this.users.findById(authUser.id);
@@ -120,7 +120,7 @@ export class AuthService {
     return { user: this.safeUser(user), tenants };
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private async generateTokenPair(
     user: { id: string; email: string; role: UserRole },

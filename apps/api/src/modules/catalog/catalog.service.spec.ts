@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+﻿import { Test, TestingModule } from "@nestjs/testing";
 import { CatalogService } from "./catalog.service";
 import { PrismaService } from "../../common/prisma.service";
 import {
@@ -6,13 +6,13 @@ import {
   ConflictException,
   ForbiddenException,
 } from "@nestjs/common";
-import { ProductStatus, UserRole } from "@drop/database";
+import { ProductStatus, UserRole } from "@prisma/client";
 
 const mockProduct = {
   id: "prod-1",
   name: "Bolsa Tote Premium",
   slug: "bolsa-tote-premium",
-  description: "Bolsa espaçosa",
+  description: "Bolsa espaÃ§osa",
   status: ProductStatus.ACTIVE,
   category: "Bolsas",
   basePrice: 150.0,
@@ -78,7 +78,7 @@ describe("CatalogService", () => {
   });
 
   describe("adminCreate", () => {
-    it("cria produto com payload válido", async () => {
+    it("cria produto com payload vÃ¡lido", async () => {
       mockPrisma.product.create.mockResolvedValue(mockProduct);
 
       const result = await service.adminCreate({
@@ -101,7 +101,7 @@ describe("CatalogService", () => {
   });
 
   describe("adminCreateVariant", () => {
-    it("cria variante com SKU válido", async () => {
+    it("cria variante com SKU vÃ¡lido", async () => {
       mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
       mockPrisma.productVariant.findUnique.mockResolvedValue(null);
       mockPrisma.productVariant.findFirst.mockResolvedValue({ id: "var-1", productId: "prod-1" });
@@ -145,8 +145,8 @@ describe("CatalogService", () => {
       );
     });
 
-    it("não retorna costPrice para lojista", async () => {
-      // Simula o retorno do Prisma após apply do select (sem costPrice)
+    it("nÃ£o retorna costPrice para lojista", async () => {
+      // Simula o retorno do Prisma apÃ³s apply do select (sem costPrice)
       const publicProduct = {
         id: mockProduct.id,
         name: mockProduct.name,
@@ -170,7 +170,7 @@ describe("CatalogService", () => {
       });
     });
 
-    it("produto inativo não aparece para lojista", async () => {
+    it("produto inativo nÃ£o aparece para lojista", async () => {
       mockPrisma.product.findMany.mockResolvedValue([]);
       mockPrisma.product.count.mockResolvedValue(0);
 
@@ -193,7 +193,7 @@ describe("CatalogService", () => {
       expect(result.slug).toBe("bolsa-tote-premium");
     });
 
-    it("lança NotFoundException para produto inativo", async () => {
+    it("lanÃ§a NotFoundException para produto inativo", async () => {
       mockPrisma.product.findUnique.mockResolvedValue({
         ...mockProduct,
         status: ProductStatus.ARCHIVED,
@@ -206,7 +206,7 @@ describe("CatalogService", () => {
       );
     });
 
-    it("lança NotFoundException para slug inexistente", async () => {
+    it("lanÃ§a NotFoundException para slug inexistente", async () => {
       mockPrisma.product.findUnique.mockResolvedValue(null);
 
       await expect(service.publicGetBySlug("nao-existe")).rejects.toThrow(NotFoundException);

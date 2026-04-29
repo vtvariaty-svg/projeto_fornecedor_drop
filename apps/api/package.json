@@ -59,10 +59,6 @@
         "tsconfig": "<rootDir>/../tsconfig.spec.json"
       }
     },
-    "moduleNameMapper": {
-      "@drop/database": "<rootDir>/../../../packages/database/src/index.ts",
-      "@drop/shared": "<rootDir>/../../../packages/shared/src/index.ts"
-    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

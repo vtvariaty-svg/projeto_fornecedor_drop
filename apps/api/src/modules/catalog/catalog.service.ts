@@ -1,10 +1,10 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   ConflictException,
   BadRequestException,
 } from "@nestjs/common";
-import { Prisma, ProductStatus } from "@drop/database";
+import { Prisma, ProductStatus } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -47,7 +47,7 @@ const PUBLIC_PRODUCT_SELECT = {
       salePrice: true,
       weightGrams: true,
       status: true,
-      // Lido internamente para calcular isAvailable — nunca exposto diretamente
+      // Lido internamente para calcular isAvailable â€” nunca exposto diretamente
       inventoryItem: {
         select: { quantityAvailable: true },
       },
@@ -55,7 +55,7 @@ const PUBLIC_PRODUCT_SELECT = {
   },
 } satisfies Prisma.ProductSelect;
 
-/** Formata um produto público removendo campos internos e adicionando isAvailable */
+/** Formata um produto pÃºblico removendo campos internos e adicionando isAvailable */
 function formatPublicProduct<
   T extends {
     variants: Array<{
@@ -78,7 +78,7 @@ function formatPublicProduct<
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ─── Admin: Products ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Admin: Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async adminCreate(dto: CreateProductDto) {
     await this.assertSlugAvailable(dto.slug);
@@ -138,7 +138,7 @@ export class CatalogService {
         media: { orderBy: { sortOrder: "asc" } },
       },
     });
-    if (!product) throw new NotFoundException("Produto não encontrado");
+    if (!product) throw new NotFoundException("Produto nÃ£o encontrado");
     return product;
   }
 
@@ -167,7 +167,7 @@ export class CatalogService {
     });
   }
 
-  // ─── Admin: Variants ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Admin: Variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async adminCreateVariant(productId: string, dto: CreateProductVariantDto) {
     await this.assertProductExists(productId);
@@ -213,7 +213,7 @@ export class CatalogService {
     });
   }
 
-  // ─── Admin: Media ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Admin: Media â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async adminAddMedia(productId: string, dto: CreateProductMediaDto) {
     await this.assertProductExists(productId);
@@ -236,12 +236,12 @@ export class CatalogService {
     const media = await this.prisma.productMedia.findFirst({
       where: { id: mediaId, productId },
     });
-    if (!media) throw new NotFoundException("Mídia não encontrada");
+    if (!media) throw new NotFoundException("MÃ­dia nÃ£o encontrada");
     await this.prisma.productMedia.delete({ where: { id: mediaId } });
     return { ok: true };
   }
 
-  // ─── Lojista: Catalog ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Lojista: Catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async publicList(query: ListProductsQueryDto) {
     const { page = 1, limit = 20, search, category, sku } = query;
@@ -286,29 +286,29 @@ export class CatalogService {
       select: PUBLIC_PRODUCT_SELECT,
     });
     if (!product || product.status !== ProductStatus.ACTIVE) {
-      throw new NotFoundException("Produto não encontrado");
+      throw new NotFoundException("Produto nÃ£o encontrado");
     }
     return formatPublicProduct(product);
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   private async assertProductExists(id: string) {
     const exists = await this.prisma.product.findUnique({ where: { id }, select: { id: true } });
-    if (!exists) throw new NotFoundException("Produto não encontrado");
+    if (!exists) throw new NotFoundException("Produto nÃ£o encontrado");
   }
 
   private async assertSlugAvailable(slug: string, excludeId?: string) {
     const existing = await this.prisma.product.findUnique({ where: { slug }, select: { id: true } });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(`Slug '${slug}' já está em uso`);
+      throw new ConflictException(`Slug '${slug}' jÃ¡ estÃ¡ em uso`);
     }
   }
 
   private async assertSkuAvailable(sku: string, excludeId?: string) {
     const existing = await this.prisma.productVariant.findUnique({ where: { sku }, select: { id: true } });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(`SKU '${sku}' já está em uso`);
+      throw new ConflictException(`SKU '${sku}' jÃ¡ estÃ¡ em uso`);
     }
   }
 
@@ -318,7 +318,7 @@ export class CatalogService {
       select: { id: true },
     });
     if (!variant) {
-      throw new BadRequestException("Variante não pertence a este produto");
+      throw new BadRequestException("Variante nÃ£o pertence a este produto");
     }
   }
 }

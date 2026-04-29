@@ -10,7 +10,7 @@ services:
     name: plataforma-drop
     env: node
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter database prisma generate && pnpm --filter database build && pnpm --filter web build && pnpm --filter api build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @drop/database generate && pnpm --filter web build && pnpm --filter api build
     startCommand: node apps/api/dist/main.js
     envVars:
       - key: NODE_ENV

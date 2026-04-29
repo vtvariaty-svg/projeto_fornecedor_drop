@@ -1,7 +1,7 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from "class-validator";
-import { InventoryMovementType } from "@drop/database";
+﻿import { IsEnum, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { InventoryMovementType } from "@prisma/client";
 
-// Apenas tipos de ajuste manual são permitidos via endpoint admin
+// Apenas tipos de ajuste manual sÃ£o permitidos via endpoint admin
 const ALLOWED_ADJUSTMENT_TYPES = [
   InventoryMovementType.ADJUSTMENT_IN,
   InventoryMovementType.ADJUSTMENT_OUT,
@@ -18,7 +18,7 @@ export class AdjustInventoryDto {
   type!: AllowedAdjustmentType;
 
   @IsInt()
-  @Min(1, { message: "quantity deve ser no mínimo 1" })
+  @Min(1, { message: "quantity deve ser no mÃ­nimo 1" })
   quantity!: number;
 
   @IsOptional()

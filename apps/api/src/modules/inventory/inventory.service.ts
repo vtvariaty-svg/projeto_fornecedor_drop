@@ -1,9 +1,9 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { InventoryMovementType, Prisma } from "@drop/database";
+import { InventoryMovementType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { AdjustInventoryDto } from "./dto/adjust-inventory.dto";
 import { ListInventoryQueryDto } from "./dto/list-inventory-query.dto";
@@ -13,12 +13,12 @@ import { ListMovementsQueryDto } from "./dto/list-movements-query.dto";
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ─── Helpers internos ────────────────────────────────────────────────────
+  // â”€â”€â”€ Helpers internos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Garante que existe um InventoryItem para o variant.
-   * Cria com quantidade zero se não existir.
-   * Aceita um client de transação opcional.
+   * Cria com quantidade zero se nÃ£o existir.
+   * Aceita um client de transaÃ§Ã£o opcional.
    */
   async createInventoryIfMissing(
     variantId: string,
@@ -34,7 +34,7 @@ export class InventoryService {
     });
   }
 
-  // ─── Admin: consultas ────────────────────────────────────────────────────
+  // â”€â”€â”€ Admin: consultas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async getInventoryByVariantId(variantId: string) {
     const item = await this.prisma.inventoryItem.findUnique({
@@ -53,12 +53,12 @@ export class InventoryService {
     });
 
     if (!item) {
-      // Verifica se a variante existe antes de retornar 404 de inventário
+      // Verifica se a variante existe antes de retornar 404 de inventÃ¡rio
       const variant = await this.prisma.productVariant.findUnique({
         where: { id: variantId },
         select: { id: true, sku: true, name: true, status: true, product: { select: { id: true, name: true, slug: true } } },
       });
-      if (!variant) throw new NotFoundException("Variante não encontrada");
+      if (!variant) throw new NotFoundException("Variante nÃ£o encontrada");
       // Retorna item virtual com zero
       return {
         id: null,
@@ -139,7 +139,7 @@ export class InventoryService {
       where: { id: variantId },
       select: { id: true },
     });
-    if (!variant) throw new NotFoundException("Variante não encontrada");
+    if (!variant) throw new NotFoundException("Variante nÃ£o encontrada");
 
     const item = await this.prisma.inventoryItem.findUnique({
       where: { productVariantId: variantId },
@@ -165,7 +165,7 @@ export class InventoryService {
     return { items: movements, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
-  // ─── Admin: ajuste manual ────────────────────────────────────────────────
+  // â”€â”€â”€ Admin: ajuste manual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async adjustInventory(
     variantId: string,
@@ -180,10 +180,10 @@ export class InventoryService {
         dto.type === InventoryMovementType.ADJUSTMENT_OUT ||
         dto.type === InventoryMovementType.MANUAL_CORRECTION;
 
-      // Valida estoque não-negativo
+      // Valida estoque nÃ£o-negativo
       if (isOutbound && item.quantityAvailable < dto.quantity) {
         throw new BadRequestException(
-          `Estoque insuficiente. Disponível: ${item.quantityAvailable}, solicitado: ${dto.quantity}`
+          `Estoque insuficiente. DisponÃ­vel: ${item.quantityAvailable}, solicitado: ${dto.quantity}`
         );
       }
 
@@ -195,7 +195,7 @@ export class InventoryService {
         data: { quantityAvailable: { increment: delta } },
       });
 
-      // Registra movimentação
+      // Registra movimentaÃ§Ã£o
       await tx.inventoryMovement.create({
         data: {
           inventoryItemId: item.id,
@@ -218,11 +218,11 @@ export class InventoryService {
     });
   }
 
-  // ─── Métodos transacionais (uso futuro pelo módulo de pedidos) ────────────
+  // â”€â”€â”€ MÃ©todos transacionais (uso futuro pelo mÃ³dulo de pedidos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /**
    * Reserva estoque: subtrai de available, soma em reserved.
-   * DEVE ser chamado dentro de uma transação Prisma existente.
+   * DEVE ser chamado dentro de uma transaÃ§Ã£o Prisma existente.
    */
   async reserveStockInTransaction(
     variantId: string,
@@ -234,7 +234,7 @@ export class InventoryService {
 
     if (item.quantityAvailable < qty) {
       throw new BadRequestException(
-        `Estoque insuficiente para reserva. Disponível: ${item.quantityAvailable}, solicitado: ${qty}`
+        `Estoque insuficiente para reserva. DisponÃ­vel: ${item.quantityAvailable}, solicitado: ${qty}`
       );
     }
 
@@ -261,8 +261,8 @@ export class InventoryService {
   }
 
   /**
-   * Libera reserva: reverte reserved → available (pedido cancelado).
-   * DEVE ser chamado dentro de uma transação Prisma existente.
+   * Libera reserva: reverte reserved â†’ available (pedido cancelado).
+   * DEVE ser chamado dentro de uma transaÃ§Ã£o Prisma existente.
    */
   async releaseReservationInTransaction(
     variantId: string,
@@ -273,7 +273,7 @@ export class InventoryService {
     const item = await tx.inventoryItem.findUnique({
       where: { productVariantId: variantId },
     });
-    if (!item) throw new NotFoundException("InventoryItem não encontrado");
+    if (!item) throw new NotFoundException("InventoryItem nÃ£o encontrado");
     if (item.quantityReserved < qty) {
       throw new BadRequestException(
         `Reserva insuficiente para liberar. Reservado: ${item.quantityReserved}, solicitado: ${qty}`
@@ -304,7 +304,7 @@ export class InventoryService {
 
   /**
    * Confirma reserva: debita reserved (pedido finalizado/enviado).
-   * DEVE ser chamado dentro de uma transação Prisma existente.
+   * DEVE ser chamado dentro de uma transaÃ§Ã£o Prisma existente.
    */
   async commitReservationInTransaction(
     variantId: string,
@@ -315,7 +315,7 @@ export class InventoryService {
     const item = await tx.inventoryItem.findUnique({
       where: { productVariantId: variantId },
     });
-    if (!item) throw new NotFoundException("InventoryItem não encontrado");
+    if (!item) throw new NotFoundException("InventoryItem nÃ£o encontrado");
     if (item.quantityReserved < qty) {
       throw new BadRequestException(
         `Reserva insuficiente para confirmar. Reservado: ${item.quantityReserved}, solicitado: ${qty}`

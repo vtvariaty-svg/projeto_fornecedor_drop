@@ -1,4 +1,4 @@
-import {
+﻿import {
   IsString,
   IsNotEmpty,
   IsOptional,
@@ -8,7 +8,7 @@ import {
   MaxLength,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { ProductStatus } from "@drop/database";
+import { ProductStatus } from "@prisma/client";
 
 export class CreateProductDto {
   @IsString()

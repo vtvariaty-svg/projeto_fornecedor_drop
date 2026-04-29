@@ -1,10 +1,10 @@
-import { Test, TestingModule } from "@nestjs/testing";
+﻿import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { InventoryService } from "./inventory.service";
 import { PrismaService } from "../../common/prisma.service";
-import { InventoryMovementType } from "@drop/database";
+import { InventoryMovementType } from "@prisma/client";
 
-// ─── Mock helpers ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Mock helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const mockItem = {
   id: "item-1",
@@ -67,7 +67,7 @@ function makeTxMock() {
   };
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe("InventoryService", () => {
   let service: InventoryService;
@@ -86,7 +86,7 @@ describe("InventoryService", () => {
     service = module.get<InventoryService>(InventoryService);
   });
 
-  // ── createInventoryIfMissing ──────────────────────────────────────────────
+  // â”€â”€ createInventoryIfMissing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("createInventoryIfMissing", () => {
     it("retorna item existente sem criar novo", async () => {
@@ -96,7 +96,7 @@ describe("InventoryService", () => {
       expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
     });
 
-    it("cria item com quantidade zero quando não existe", async () => {
+    it("cria item com quantidade zero quando nÃ£o existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.inventoryItem.create.mockResolvedValue({ ...mockItem, quantityAvailable: 0 });
       const result = await service.createInventoryIfMissing("variant-1");
@@ -107,14 +107,14 @@ describe("InventoryService", () => {
     });
   });
 
-  // ── adjustInventory ───────────────────────────────────────────────────────
+  // â”€â”€ adjustInventory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("adjustInventory", () => {
     it("ADJUSTMENT_IN aumenta quantityAvailable e cria movement", async () => {
       const dto = {
         type: InventoryMovementType.ADJUSTMENT_IN,
         quantity: 10,
-        reason: "Reposição",
+        reason: "ReposiÃ§Ã£o",
       };
 
       const result = await service.adjustInventory("variant-1", dto, "user-1");
@@ -136,7 +136,7 @@ describe("InventoryService", () => {
       expect(result.adjustment.delta).toBe(-5);
     });
 
-    it("ADJUSTMENT_OUT maior que disponível lança BadRequestException", async () => {
+    it("ADJUSTMENT_OUT maior que disponÃ­vel lanÃ§a BadRequestException", async () => {
       const dto = {
         type: InventoryMovementType.ADJUSTMENT_OUT,
         quantity: 999, // maior que os 20 do mockItem
@@ -148,7 +148,7 @@ describe("InventoryService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("MANUAL_CORRECTION maior que disponível lança BadRequestException", async () => {
+    it("MANUAL_CORRECTION maior que disponÃ­vel lanÃ§a BadRequestException", async () => {
       const dto = {
         type: InventoryMovementType.MANUAL_CORRECTION,
         quantity: 100,
@@ -160,7 +160,7 @@ describe("InventoryService", () => {
     });
   });
 
-  // ── getInventoryByVariantId ───────────────────────────────────────────────
+  // â”€â”€ getInventoryByVariantId â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getInventoryByVariantId", () => {
     it("retorna item com variant quando existe", async () => {
@@ -171,7 +171,7 @@ describe("InventoryService", () => {
       expect(result).toEqual(itemWithVariant);
     });
 
-    it("retorna item virtual com quantidades zero quando inventário não existe mas variante existe", async () => {
+    it("retorna item virtual com quantidades zero quando inventÃ¡rio nÃ£o existe mas variante existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.productVariant.findUnique.mockResolvedValue(mockVariant);
 
@@ -181,7 +181,7 @@ describe("InventoryService", () => {
       expect(result.id).toBeNull();
     });
 
-    it("lança NotFoundException quando variante não existe", async () => {
+    it("lanÃ§a NotFoundException quando variante nÃ£o existe", async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue(null);
       prisma.productVariant.findUnique.mockResolvedValue(null);
 
@@ -191,12 +191,12 @@ describe("InventoryService", () => {
     });
   });
 
-  // ── reserveStockInTransaction ─────────────────────────────────────────────
+  // â”€â”€ reserveStockInTransaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("reserveStockInTransaction", () => {
-    it("lança BadRequestException quando reserva excede disponível", async () => {
+    it("lanÃ§a BadRequestException quando reserva excede disponÃ­vel", async () => {
       const tx = makeTxMock();
-      // item com apenas 5 disponíveis
+      // item com apenas 5 disponÃ­veis
       tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityAvailable: 5 });
 
       await expect(
@@ -204,9 +204,9 @@ describe("InventoryService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("cria movement do tipo RESERVATION quando reserva é válida", async () => {
+    it("cria movement do tipo RESERVATION quando reserva Ã© vÃ¡lida", async () => {
       const tx = makeTxMock();
-      tx.inventoryItem.findUnique.mockResolvedValue(mockItem); // 20 disponíveis
+      tx.inventoryItem.findUnique.mockResolvedValue(mockItem); // 20 disponÃ­veis
 
       await service.reserveStockInTransaction("variant-1", 5, "order-1", tx as never);
 
@@ -218,10 +218,10 @@ describe("InventoryService", () => {
     });
   });
 
-  // ── releaseReservationInTransaction ──────────────────────────────────────
+  // â”€â”€ releaseReservationInTransaction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("releaseReservationInTransaction", () => {
-    it("lança BadRequestException quando não há reserva suficiente para liberar", async () => {
+    it("lanÃ§a BadRequestException quando nÃ£o hÃ¡ reserva suficiente para liberar", async () => {
       const tx = makeTxMock();
       tx.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantityReserved: 0 });
 
