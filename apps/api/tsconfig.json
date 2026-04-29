@@ -6,7 +6,6 @@
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": "src",
-    "incremental": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strict": true,

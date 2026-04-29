@@ -6,6 +6,7 @@ node_modules/
 dist/
 .next/
 out/
+*.tsbuildinfo
 
 # environment — NUNCA commitar .env com valores reais
 .env
