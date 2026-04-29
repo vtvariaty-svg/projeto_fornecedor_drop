@@ -16,12 +16,7 @@
     "noImplicitThis": true,
     "alwaysStrict": true,
     "sourceMap": true,
-    "declaration": true,
-    "baseUrl": ".",
-    "paths": {
-      "@drop/database": ["../../packages/database/src"],
-      "@drop/shared": ["../../packages/shared/src"]
-    }
+    "declaration": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
