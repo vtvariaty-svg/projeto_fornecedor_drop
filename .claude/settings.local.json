@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(where pnpm *)",
+      "Bash(pnpm --version)",
+      "Bash(COREPACK_ENABLE_NETWORK=0 pnpm *)",
+      "Bash(npm --version)",
+      "Bash(npm list *)",
+      "Bash(npm root *)",
+      "Bash(ls \"$\\(npm root -g\\)/pnpm\")",
+      "Bash(wsl *)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
