@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
+import { PrismaModule } from "./common/prisma.module";
 import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -19,9 +20,11 @@ import { AuditModule } from "./modules/audit/audit.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
 
+    // PrismaModule global — PrismaService disponível em todos os módulos
+    PrismaModule,
+
     // Serve o frontend buildado (apps/web/out/) a partir da raiz /.
     // Rotas /api/* são excluídas e tratadas pelos controllers NestJS.
-    // __dirname em produção = apps/api/dist → ../../.. = raiz do monorepo.
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "..", "..", "apps", "web", "out"),
       exclude: ["/api/(.*)"],

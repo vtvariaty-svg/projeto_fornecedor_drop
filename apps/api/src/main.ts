@@ -1,12 +1,16 @@
 import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Todos os endpoints da API ficam sob /api/*
-  // Exemplo: GET /api/health, POST /api/users, etc.
   app.setGlobalPrefix("api");
+
+  // Valida e transforma DTOs automaticamente
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, transform: true })
+  );
 
   app.enableCors();
 
@@ -14,7 +18,6 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`API running on port ${port} — endpoints under /api`);
-  console.log(`Health: http://localhost:${port}/api/health`);
 }
 
 bootstrap();

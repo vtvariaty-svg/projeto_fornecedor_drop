@@ -118,17 +118,18 @@ enum AuditAction {
 // =============================================
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      UserRole @default(TENANT_MEMBER)
-  password  String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         UserRole @default(TENANT_MEMBER)
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tenants   TenantUser[]
-  auditLogs AuditLog[]
+  tenants       TenantUser[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 
   @@index([email])
   @@index([createdAt])
@@ -153,9 +154,11 @@ model Tenant {
 }
 
 model TenantUser {
-  id       String   @id @default(cuid())
-  role     UserRole @default(TENANT_MEMBER)
-  joinedAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  role      UserRole @default(TENANT_MEMBER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenantId String
   userId   String
@@ -166,6 +169,23 @@ model TenantUser {
   @@unique([tenantId, userId])
   @@index([tenantId])
   @@index([userId])
+}
+
+// Refresh tokens — hash SHA-256 do token gerado, nunca o token em texto puro
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  userAgent String?
+  ipAddress String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // =============================================
@@ -184,8 +204,8 @@ model Brand {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  assets     BrandAsset[]
-  orders     Order[]
+  assets BrandAsset[]
+  orders Order[]
 
   @@index([tenantId])
   @@index([slug])
@@ -208,7 +228,7 @@ model BrandAsset {
 }
 
 // =============================================
-// CATALOG (Product pertence à operação principal, não ao lojista)
+// CATALOG
 // =============================================
 
 model Product {
@@ -220,9 +240,9 @@ model Product {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  variants              ProductVariant[]
-  media                 ProductMedia[]
-  customizationOptions  ProductCustomizationOption[]
+  variants             ProductVariant[]
+  media                ProductMedia[]
+  customizationOptions ProductCustomizationOption[]
 
   @@index([status])
   @@index([createdAt])
@@ -353,7 +373,6 @@ model Order {
 model OrderItem {
   id String @id @default(cuid())
 
-  // Snapshot dos dados no momento do pedido
   snapshotName          String
   snapshotSku           String
   snapshotPrice         Decimal @db.Decimal(12, 2)
@@ -393,15 +412,15 @@ model OrderStatusHistory {
 // =============================================
 
 model Shipment {
-  id             String         @id @default(cuid())
-  status         ShipmentStatus @default(PENDING)
-  carrier        String?
-  trackingCode   String?
-  trackingUrl    String?
-  shippedAt      DateTime?
-  deliveredAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  status       ShipmentStatus @default(PENDING)
+  carrier      String?
+  trackingCode String?
+  trackingUrl  String?
+  shippedAt    DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id])
@@ -416,18 +435,17 @@ model Shipment {
 // =============================================
 
 model Payment {
-  id            String        @id @default(cuid())
-  status        PaymentStatus @default(PENDING)
-  method        String?
-  amount        Decimal       @db.Decimal(12, 2)
-  externalRef   String?
-  paidAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  status      PaymentStatus @default(PENDING)
+  method      String?
+  amount      Decimal       @db.Decimal(12, 2)
+  externalRef String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  orderId String @unique
-  order   Order  @relation(fields: [orderId], references: [id])
-
+  orderId  String  @unique
+  order    Order   @relation(fields: [orderId], references: [id])
   tenantId String?
 
   @@index([status])
