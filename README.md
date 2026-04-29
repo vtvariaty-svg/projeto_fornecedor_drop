@@ -124,10 +124,14 @@ node apps/api/dist/main.js
 ```
 
 Acesse `http://localhost:3001`:
-- Página inicial → servida pelo frontend estático
-- `/login` → página estática de login
-- `/dashboard` → página estática do dashboard
-- `GET /api/health` → health check da API
+- `/` → Nova Home Pública com a proposta de valor e apresentação dos módulos.
+- `/login` → Página de autenticação.
+- `/dashboard` → Dashboard restrito (redireciona para `/login` se não autenticado).
+- `/dashboard/catalog` → Catálogo B2B.
+- `/dashboard/orders` → Pedidos manuais e histórico.
+- `GET /api/health` → Health check da API.
+
+> **Teste Rápido de UI**: Para visualizar rapidamente a Home Pública sem rodar o backend, você pode rodar `pnpm dev:web` e acessar `http://localhost:3000`.
 
 ### Worker
 
