@@ -17,6 +17,7 @@
     "alwaysStrict": true,
     "sourceMap": true,
     "declaration": true,
+    "baseUrl": ".",
     "paths": {
       "@drop/database": ["../../packages/database/src"],
       "@drop/shared": ["../../packages/shared/src"]

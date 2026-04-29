@@ -83,11 +83,12 @@ enum PaymentStatus {
 }
 
 enum InventoryMovementType {
-  INBOUND
-  OUTBOUND
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
   RESERVATION
-  RESERVATION_RELEASE
-  ADJUSTMENT
+  RELEASE_RESERVATION
+  COMMIT_RESERVATION
+  MANUAL_CORRECTION
   RETURN
 }
 
@@ -330,6 +331,7 @@ model InventoryItem {
   id                String   @id @default(cuid())
   quantityAvailable Int      @default(0)
   quantityReserved  Int      @default(0)
+  createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   productVariantId String         @unique
@@ -341,20 +343,23 @@ model InventoryItem {
 }
 
 model InventoryMovement {
-  id        String                @id @default(cuid())
-  type      InventoryMovementType
-  quantity  Int
-  reason    String?
-  createdAt DateTime              @default(now())
+  id              String                @id @default(cuid())
+  type            InventoryMovementType
+  quantity        Int
+  reason          String?
+  variantId       String
+  referenceType   String?
+  referenceId     String?
+  createdByUserId String?
+  createdAt       DateTime              @default(now())
 
   inventoryItemId String
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
 
-  orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id])
-
   @@index([inventoryItemId])
-  @@index([orderId])
+  @@index([variantId])
+  @@index([type])
+  @@index([createdByUserId])
   @@index([createdAt])
 }
 
@@ -380,7 +385,6 @@ model Order {
   statusHistory  OrderStatusHistory[]
   shipments      Shipment[]
   payment        Payment?
-  inventoryMoves InventoryMovement[]
 
   @@index([tenantId])
   @@index([brandId])

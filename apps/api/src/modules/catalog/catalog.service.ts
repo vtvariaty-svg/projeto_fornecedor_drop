@@ -13,7 +13,7 @@ import { UpdateProductVariantDto } from "./dto/update-product-variant.dto";
 import { CreateProductMediaDto } from "./dto/create-product-media.dto";
 import { ListProductsQueryDto } from "./dto/list-products-query.dto";
 
-// Fields visible to lojistas (never expose costPrice)
+// Fields visible to lojistas (never expose costPrice or internal quantities)
 const PUBLIC_PRODUCT_SELECT = {
   id: true,
   name: true,
@@ -47,9 +47,32 @@ const PUBLIC_PRODUCT_SELECT = {
       salePrice: true,
       weightGrams: true,
       status: true,
+      // Lido internamente para calcular isAvailable — nunca exposto diretamente
+      inventoryItem: {
+        select: { quantityAvailable: true },
+      },
     },
   },
 } satisfies Prisma.ProductSelect;
+
+/** Formata um produto público removendo campos internos e adicionando isAvailable */
+function formatPublicProduct<
+  T extends {
+    variants: Array<{
+      inventoryItem: { quantityAvailable: number } | null;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  },
+>(product: T) {
+  return {
+    ...product,
+    variants: product.variants.map(({ inventoryItem, ...rest }) => ({
+      ...rest,
+      isAvailable: (inventoryItem?.quantityAvailable ?? 0) > 0,
+    })),
+  };
+}
 
 @Injectable()
 export class CatalogService {
@@ -254,7 +277,7 @@ export class CatalogService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    return { items: items.map(formatPublicProduct), total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async publicGetBySlug(slug: string) {
@@ -265,7 +288,7 @@ export class CatalogService {
     if (!product || product.status !== ProductStatus.ACTIVE) {
       throw new NotFoundException("Produto não encontrado");
     }
-    return product;
+    return formatPublicProduct(product);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

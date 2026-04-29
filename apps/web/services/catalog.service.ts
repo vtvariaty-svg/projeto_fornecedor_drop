@@ -13,6 +13,7 @@ export interface ProductVariantData {
   salePrice: number;
   weightGrams?: number;
   status: string;
+  isAvailable: boolean;
 }
 
 export interface ProductMediaData {

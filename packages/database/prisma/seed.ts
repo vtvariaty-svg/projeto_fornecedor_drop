@@ -192,6 +192,51 @@ async function main() {
     });
   }
 
+  // ─── Estoque Inicial ─────────────────────────────────────────────────────
+
+  const stockMap: Record<string, number> = {
+    "TOTE-PRETO-M":    50,
+    "TOTE-CARAMELO-M": 30,
+    "TOTE-PRETO-G":    20,
+    "CLUTCH-PRETO":    15,
+    "CLUTCH-VINHO":     0, // variante inativa, sem estoque
+  };
+
+  for (const [sku, qty] of Object.entries(stockMap)) {
+    const variant = await prisma.productVariant.findUnique({
+      where: { sku },
+      select: { id: true },
+    });
+    if (!variant) continue;
+
+    const existingItem = await prisma.inventoryItem.findUnique({
+      where: { productVariantId: variant.id },
+    });
+
+    if (!existingItem) {
+      const item = await prisma.inventoryItem.create({
+        data: {
+          productVariantId: variant.id,
+          quantityAvailable: qty,
+          quantityReserved: 0,
+        },
+      });
+      if (qty > 0) {
+        await prisma.inventoryMovement.create({
+          data: {
+            inventoryItemId: item.id,
+            variantId: variant.id,
+            type: "ADJUSTMENT_IN",
+            quantity: qty,
+            reason: "Estoque inicial de seed",
+            referenceType: "SEED",
+          },
+        });
+      }
+      console.log(`   Estoque: ${sku} → ${qty} unidades`);
+    }
+  }
+
   console.log("✅ Seed concluído!");
   console.log(`   Tenant : ${tenant.slug}`);
   console.log(`   Usuário: ${user.email} / senha: Admin@123`);
@@ -204,3 +249,4 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+

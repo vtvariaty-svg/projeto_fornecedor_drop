@@ -51,6 +51,7 @@ function ProductDetail({
   if (!product) return null;
 
   const activeVariants = product.variants.filter((v) => v.status === "ACTIVE");
+  const availableVariants = activeVariants.filter((v) => v.isAvailable);
 
   return (
     <div>
@@ -81,14 +82,27 @@ function ProductDetail({
           <p style={s.desc}>{product.description}</p>
         )}
 
-        <h3 style={s.variantTitle}>Variantes disponíveis</h3>
+        <div style={{ marginBottom: "1rem" }}>
+          {availableVariants.length > 0 ? (
+            <span style={s.badgeAvailable}>✓ {availableVariants.length} variante{availableVariants.length !== 1 ? "s" : ""} disponível{availableVariants.length !== 1 ? "" : ""}</span>
+          ) : (
+            <span style={s.badgeUnavailable}>Sem estoque disponível</span>
+          )}
+        </div>
+
+        <h3 style={s.variantTitle}>Variantes</h3>
         {activeVariants.length === 0 ? (
           <p style={s.muted}>Nenhuma variante disponível.</p>
         ) : (
           <div style={s.variantGrid}>
             {activeVariants.map((v) => (
-              <div key={v.id} style={s.variantCard}>
-                <p style={{ margin: 0, fontWeight: 600 }}>{v.name}</p>
+              <div key={v.id} style={{ ...s.variantCard, opacity: v.isAvailable ? 1 : 0.55 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.35rem" }}>
+                  <p style={{ margin: 0, fontWeight: 600 }}>{v.name}</p>
+                  <span style={v.isAvailable ? s.badgeAvailable : s.badgeUnavailable}>
+                    {v.isAvailable ? "Disponível" : "Indisponível"}
+                  </span>
+                </div>
                 <p style={s.variantSku}>SKU: {v.sku}</p>
                 {v.color && <p style={s.variantAttr}>Cor: {v.color}</p>}
                 {v.size && <p style={s.variantAttr}>Tamanho: {v.size}</p>}
@@ -167,31 +181,41 @@ function CatalogInner() {
       )}
 
       <div style={s.grid}>
-        {catalog?.items.map((p) => (
-          <div
-            key={p.id}
-            style={s.productCard}
-            onClick={() => selectProduct(p.slug)}
-          >
-            {p.media[0] ? (
-              <img
-                src={p.media[0].url}
-                alt={p.media[0].altText ?? p.name}
-                style={s.cardImage}
-              />
-            ) : (
-              <div style={s.cardImagePlaceholder}>Sem imagem</div>
-            )}
-            <div style={s.cardBody}>
-              {p.category && <span style={s.badge}>{p.category}</span>}
-              <p style={s.cardName}>{p.name}</p>
-              <p style={s.cardPrice}>{formatPrice(Number(p.basePrice))}</p>
-              <p style={s.cardVariants}>
-                {p.variants.length} variante{p.variants.length !== 1 ? "s" : ""}
-              </p>
+        {catalog?.items.map((p) => {
+          const availableCount = p.variants.filter((v) => v.isAvailable).length;
+          return (
+            <div
+              key={p.id}
+              style={s.productCard}
+              onClick={() => selectProduct(p.slug)}
+            >
+              {p.media[0] ? (
+                <img
+                  src={p.media[0].url}
+                  alt={p.media[0].altText ?? p.name}
+                  style={s.cardImage}
+                />
+              ) : (
+                <div style={s.cardImagePlaceholder}>Sem imagem</div>
+              )}
+              <div style={s.cardBody}>
+                {p.category && <span style={s.badge}>{p.category}</span>}
+                <p style={s.cardName}>{p.name}</p>
+                <p style={s.cardPrice}>{formatPrice(Number(p.basePrice))}</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
+                  <span style={s.cardVariants}>
+                    {p.variants.length} variante{p.variants.length !== 1 ? "s" : ""}
+                  </span>
+                  {availableCount > 0 ? (
+                    <span style={s.badgeAvailableSm}>✓ {availableCount} disponível{availableCount !== 1 ? "" : ""}</span>
+                  ) : (
+                    <span style={s.badgeUnavailableSm}>Sem estoque</span>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {catalog && catalog.pages > 1 && (
@@ -233,8 +257,12 @@ const s: Record<string, React.CSSProperties> = {
   cardBody: { padding: "0.75rem" },
   cardName: { margin: "0.25rem 0 0.25rem", fontWeight: 600, fontSize: "0.95rem" },
   cardPrice: { margin: "0 0 0.25rem", color: "#111", fontWeight: 700 },
-  cardVariants: { margin: 0, color: "#888", fontSize: "0.8rem" },
+  cardVariants: { margin: 0, color: "#888", fontSize: "0.75rem" },
   badge: { display: "inline-block", background: "#f0f0f0", color: "#555", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px", marginBottom: "0.35rem" },
+  badgeAvailable: { display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px", fontWeight: 600 },
+  badgeUnavailable: { display: "inline-block", background: "#f3f4f6", color: "#6b7280", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px" },
+  badgeAvailableSm: { display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: "0.7rem", padding: "0.1rem 0.4rem", borderRadius: "10px", fontWeight: 600 },
+  badgeUnavailableSm: { display: "inline-block", background: "#f3f4f6", color: "#6b7280", fontSize: "0.7rem", padding: "0.1rem 0.4rem", borderRadius: "10px" },
   muted: { color: "#888", textAlign: "center", marginTop: "2rem" },
   error: { color: "#c00", textAlign: "center", marginTop: "2rem" },
   card: { background: "#fff", borderRadius: "8px", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" },
