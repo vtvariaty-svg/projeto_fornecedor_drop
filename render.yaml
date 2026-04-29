@@ -1,13 +1,17 @@
 services:
   # =============================================
-  # API — NestJS
+  # Serviço único — API NestJS + frontend estático
+  #
+  # Decisão de negócio: fase inicial usa 1 serviço para minimizar custo.
+  # Worker e cron jobs serão ativados em serviços separados apenas quando
+  # o volume operacional justificar o custo adicional no Render.
   # =============================================
   - type: web
-    name: plataforma-drop-api
+    name: plataforma-drop
     env: node
-    rootDir: apps/api
-    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter api build
-    startCommand: node dist/main.js
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter database prisma generate && pnpm --filter web build && pnpm --filter api build
+    startCommand: node apps/api/dist/main.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -28,36 +32,4 @@ services:
       - key: STORAGE_ACCESS_KEY
         sync: false
       - key: STORAGE_SECRET_KEY
-        sync: false
-
-  # =============================================
-  # WEB — Next.js
-  # =============================================
-  - type: web
-    name: plataforma-drop-web
-    env: node
-    rootDir: apps/web
-    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter web build
-    startCommand: node .next/standalone/server.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-
-  # =============================================
-  # WORKER — Background Worker
-  # =============================================
-  - type: worker
-    name: plataforma-drop-worker
-    env: node
-    rootDir: apps/worker
-    buildCommand: cd ../.. && pnpm install --frozen-lockfile && pnpm --filter worker build
-    startCommand: node dist/index.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
         sync: false

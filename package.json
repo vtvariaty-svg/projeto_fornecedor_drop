@@ -11,6 +11,7 @@
     "build:web": "pnpm --filter web build",
     "build:worker": "pnpm --filter worker build",
     "build": "pnpm -r build",
+    "build:prod": "pnpm db:generate && pnpm build:web && pnpm build:api",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter database prisma generate",
