@@ -108,6 +108,12 @@ export default function DashboardPage() {
               >
                 + Novo Pedido
               </button>
+              <button
+                onClick={() => router.push("/dashboard/brands")}
+                style={{ ...styles.quickBtn, background: "#4f46e5" }}
+              >
+                Brand Studio
+              </button>
             </div>
           </section>
         )}

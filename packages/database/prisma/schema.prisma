@@ -202,8 +202,21 @@ model Brand {
   slug        String      @unique
   description String?
   status      BrandStatus @default(DRAFT)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+
+  // Identidade basica da marca (Brand Studio)
+  primaryColor   String?
+  secondaryColor String?
+  accentColor    String?
+  toneOfVoice    String?
+  brandStory     String?
+  guidelines     String?
+
+  // Campos de aprovacao (fluxo futuro)
+  approvedAt     DateTime?
+  rejectedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -218,17 +231,24 @@ model Brand {
 }
 
 model BrandAsset {
-  id        String    @id @default(cuid())
-  type      AssetType
-  url       String
-  filename  String
-  mimeType  String
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  type       AssetType
+  url        String
+  filename   String
+  mimeType   String
+  storageKey String?
+  altText    String?
+  sortOrder  Int       @default(0)
+  isApproved Boolean   @default(false)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   brandId String
   brand   Brand  @relation(fields: [brandId], references: [id])
 
   @@index([brandId])
+  @@index([type])
 }
 
 // =============================================
