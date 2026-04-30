@@ -1,135 +1,1121 @@
 PROMPT PARA CLAUDE CODE SONNET
-
 Título:
-Corrigir autenticação, validação de tenant, concorrência de estoque e documentação antes de implementar pedidos
-
+Implementar White Label Express mínimo como camada opcional sobre pedidos, preservando dropshipping padrão e monorepo single-service no Render
 Contexto:
-A plataforma B2B multi-tenant de dropshipping, white label e private label já possui monorepo, NestJS, Next.js static export, Prisma, Neon PostgreSQL, Render single-service, autenticação, catálogo e estoque inicial.
+Estamos construindo uma plataforma B2B multi-tenant para fornecimento dropshipping, white label, private label e fulfillment de bolsas e acessórios.
+O repositório é:
 
-Foi feita auditoria do repositório e foram identificados problemas que devem ser corrigidos antes da implementação de pedido manual com reserva transacional de estoque.
+
+git@github.com:vtvariaty-svg/projeto_fornecedor_drop.git
+
+
+branch principal: master
+
+
+Arquitetura obrigatória:
+
+
+Monorepo com pnpm workspaces.
+
+
+Frontend em apps/web com Next.js e TypeScript.
+
+
+Backend em apps/api com NestJS e TypeScript.
+
+
+Worker em apps/worker, mantido apenas para evolução futura.
+
+
+Banco em packages/database com Prisma e Neon PostgreSQL.
+
+
+Código compartilhado em packages/shared.
+
+
+Restrição crítica de infraestrutura:
+O projeto deve continuar sendo um monorepo e deve continuar operando em um único Web Service no Render.
+Isso significa:
+
+
+Não criar serviço Render separado para frontend.
+
+
+Não criar serviço Render separado para worker.
+
+
+Não criar Render Cron Job nesta etapa.
+
+
+Não criar segundo processo público no Render.
+
+
+Não usar next start em produção.
+
+
+Não usar concurrently em produção.
+
+
+Não abrir segunda porta pública.
+
+
+Não transformar o projeto em microservices.
+
+
+O backend NestJS continua sendo o único processo iniciado em produção.
+
+
+O frontend Next.js continua sendo buildado como static export e servido pela API NestJS.
+
+
+Rotas /api/* continuam nos controllers NestJS.
+
+
+Rotas do frontend continuam servidas como arquivos estáticos pelo mesmo serviço.
+
+
+O nome definitivo da plataforma ainda não foi decidido. Não usar “D'OUTRO LADO B2B”. Usar apenas nome neutro provisório já adotado no projeto.
+A plataforma não é apenas white label. Ela possui dois pilares desde o MVP:
+
+
+Dropshipping padrão com catálogo existente do fornecedor
+
+
+O lojista pode vender produtos-base e SKUs já existentes.
+
+
+Não precisa criar marca.
+
+
+Não precisa ter marca aprovada.
+
+
+Não precisa selecionar personalização.
+
+
+Pedido manual sem brandId deve continuar funcionando.
+
+
+
+
+White Label Express como camada opcional
+
+
+O lojista pode usar uma marca aprovada.
+
+
+Pode selecionar opções de personalização permitidas por produto.
+
+
+Pode usar assets de marca aprovados.
+
+
+O pedido deve salvar snapshot da personalização.
+
+
+A operação personalizada será preparada, mas ainda sem automações avançadas.
+
+
+
+
+A plataforma já deve possuir:
+
+
+Auth JWT com refresh token.
+
+
+Tenants.
+
+
+TenantContextGuard.
+
+
+Catálogo de produtos existentes.
+
+
+Estoque por SKU.
+
+
+Pedido manual com snapshot e reserva de estoque.
+
+
+Brand Studio básico.
+
+
+Aprovação de marcas e assets.
+
+
+Configuração de opções de personalização por produto.
+
 
 Objetivo:
-Corrigir falhas críticas na autenticação, validação multi-tenant, RBAC base, concorrência de estoque e documentação, mantendo o escopo fechado e sem implementar pedidos nesta tarefa.
+Implementar o fluxo mínimo de White Label Express opcional dentro do pedido manual, permitindo que o lojista crie pedidos com marca e personalização quando desejar, sem bloquear ou alterar o fluxo de dropshipping padrão.
+Esta tarefa deve permitir:
+
+
+Pedido padrão sem marca e sem personalização.
+
+
+Pedido white label com marca aprovada.
+
+
+Pedido white label com opções de personalização válidas por produto.
+
+
+Snapshot de personalização nos itens do pedido.
+
+
+Registro claro de que o pedido possui personalização.
+
+
+Visualização do pedido personalizado para lojista e admin.
+
+
+Preparação para operação manual de aprovação/produção futura.
+
 
 Antes de modificar:
 
+
 Inspecione a estrutura atual do repositório.
-Verifique AuthService, JwtStrategy, RolesGuard, CurrentTenant, TenantsService, CatalogController e InventoryService.
-Verifique o schema Prisma antes de alterar.
+
+
+Confirme que o projeto continua em monorepo.
+
+
+Verifique render.yaml e garanta que existe apenas um serviço.
+
+
+Verifique packages/database/prisma/schema.prisma.
+
+
+Verifique apps/api/src/modules/orders.
+
+
+Verifique apps/api/src/modules/brands.
+
+
+Verifique apps/api/src/modules/catalog.
+
+
+Verifique InventoryService.
+
+
+Verifique TenantContextGuard e CurrentTenant.
+
+
+Verifique frontend de pedidos em apps/web/app/(app)/dashboard/orders.
+
+
+Verifique frontend de catálogo em apps/web/app/(app)/dashboard/catalog.
+
+
+Verifique serviços frontend em apps/web/services.
+
+
 Não reescreva partes não relacionadas.
-Não implemente pedidos nesta tarefa.
-Preserve o deploy single-service no Render.
-Não adicione segredos reais.
-Mantenha TypeScript estrito.
-Documente decisões relevantes.
+
+
+Não alterar arquitetura monorepo.
+
+
+Não alterar deploy single-service.
+
+
+Não criar serviço separado para frontend.
+
+
+Não criar serviço separado para worker.
+
+
+Não criar cron job.
+
+
+Não adicionar segredos reais.
+
+
+Não usar “D'OUTRO LADO B2B”.
+
+
+Não definir marca definitiva da plataforma.
+
+
+Manter TypeScript estrito.
+
+
+Documentar decisões relevantes.
+
 
 Escopo incluído:
 
-Corrigir fluxo de refresh token.
-Criar validação real de tenant ativo por request.
-Criar guard reutilizável para contexto de tenant.
-Preparar RBAC por tenant sem overengineering.
-Aplicar validação de tenant no catálogo de lojista.
-Corrigir reserva/liberação/confirmação de estoque para reduzir risco de corrida concorrente.
-Adicionar testes unitários ou integrados para auth, tenant e estoque.
-Corrigir mensagens com encoding quebrado.
-Atualizar README para refletir o estado real do projeto.
+
+Permitir pedido manual padrão sem brandId.
+
+
+Permitir pedido manual white label com brandId opcional.
+
+
+Validar que brandId, quando enviado, pertence ao tenant autenticado.
+
+
+Validar que marca usada em white label está aprovada/ativa.
+
+
+Permitir personalizações por item do pedido.
+
+
+Validar que cada personalização selecionada existe e está vinculada ao produto-base correspondente.
+
+
+Validar que a opção de personalização está ativa.
+
+
+Validar que asset de marca selecionado pertence à marca do tenant e está aprovado, se a personalização exigir asset.
+
+
+Salvar snapshot completo da personalização no OrderItem.
+
+
+Exibir no detalhe do pedido se o item é padrão ou white label.
+
+
+Exibir no detalhe do pedido os dados de personalização salvos em snapshot.
+
+
+Atualizar frontend de novo pedido para permitir modo:
+
+
+“Dropshipping padrão”
+
+
+“Com marca própria / white label”
+
+
+
+
+Garantir que o modo padrão continue sendo sem marca.
+
+
+Atualizar README explicando que white label é opcional e não bloqueia o catálogo existente.
+
+
+Preservar monorepo e Render single-service.
+
 
 Escopo excluído:
 
-Não implementar pedidos.
-Não implementar pagamento.
+
+Não implementar mockup automático.
+
+
+Não aplicar logo em imagem de produto.
+
+
+Não implementar upload real para S3/R2.
+
+
+Não salvar arquivos no filesystem local.
+
+
+Não implementar produção personalizada completa.
+
+
+Não implementar fila de produção.
+
+
 Não implementar fulfillment.
-Não implementar Brand Studio.
-Não implementar white label.
+
+
+Não gerar etiqueta.
+
+
+Não implementar envio/rastreio.
+
+
+Não implementar pagamento real.
+
+
+Não implementar wallet financeiro.
+
+
 Não implementar worker.
+
+
+Não implementar BullMQ.
+
+
+Não implementar Redis.
+
+
 Não criar serviço adicional no Render.
-Não alterar arquitetura central sem justificar.
+
+
+Não criar cron job.
+
+
+Não criar integração externa.
+
+
+Não tornar marca obrigatória no pedido.
+
+
+Não tornar marca obrigatória no catálogo.
+
+
+Não esconder produtos sem personalização.
+
+
+Não criar relação obrigatória entre Product e Brand.
+
 
 Requisitos técnicos:
 
-Refresh token deve ser tratado como token opaco, não como JWT, se mantida a estratégia atual.
-Refresh token deve continuar salvo apenas como hash SHA-256 no banco.
-Refresh deve validar:
-hash existente;
-token não revogado;
-token não expirado;
-usuário ativo.
-Refresh deve rotacionar token.
-Access token continua sendo JWT.
-Criar TenantContextGuard ou equivalente.
-Guard deve validar X-Tenant-ID.
-Guard deve verificar se o usuário pertence ao tenant por TenantUser.
-Guard deve rejeitar tenant inativo.
-Guard deve anexar tenant validado ao request.
-Criar decorator @CurrentTenant() retornando tenant validado, não apenas header bruto.
-Não depender de Redis.
-Não salvar secrets no código.
 
-Requisitos de estoque:
+Manter monorepo com pnpm workspaces.
 
-Ajustar reserveStockInTransaction para evitar overbooking concorrente.
-Preferir operação atômica com updateMany usando condição quantityAvailable >= qty.
-Se a atualização condicional não afetar exatamente um registro, lançar erro de estoque insuficiente.
-Criar movimentação somente após atualização bem-sucedida.
-Revisar releaseReservationInTransaction e commitReservationInTransaction com validações equivalentes.
-Manter todas as operações transacionais compatíveis com uso futuro pelo módulo de pedidos.
 
+Manter backend e frontend no mesmo serviço Render.
+
+
+Manter Next.js App Router.
+
+
+Manter output: "export".
+
+
+Manter NestJS com prefixo global /api.
+
+
+Manter ServeStaticModule servindo frontend estático.
+
+
+Usar NestJS modular.
+
+
+Controllers apenas para entrada/saída.
+
+
+Services para regra de negócio.
+
+
+DTOs com class-validator.
+
+
+Prisma para acesso ao banco.
+
+
+JwtAuthGuard e TenantContextGuard em rotas tenant-scoped.
+
+
+RolesGuard em rotas administrativas.
+
+
+Não confiar em tenantId vindo do body.
+
+
+Usar tenant validado pelo guard.
+
+
+Não vazar pedidos entre tenants.
+
+
+Não vazar marcas/assets entre tenants.
+
+
+Não expor secrets no frontend.
+
+
+Não expor dados internos sensíveis.
+
+
+Não alterar reserva de estoque fora de transação.
+
+
+Não quebrar pedidos sem marca.
+
+
+Não quebrar catálogo sem personalização.
+
+
+Regras de negócio:
+
+
+Dropshipping padrão é fluxo principal do MVP.
+
+
+Lojista pode vender produtos existentes sem marca.
+
+
+Marca própria é opcional.
+
+
+White label é camada adicional sobre produtos-base.
+
+
+Produto-base pertence à operação fornecedora.
+
+
+Produto-base não pertence diretamente à marca do lojista.
+
+
+SKU representa a variação vendável.
+
+
+Estoque comum pertence ao SKU/ProductVariant.
+
+
+Pedido padrão sem marca deve continuar válido.
+
+
+Pedido white label deve exigir marca aprovada.
+
+
+Pedido white label deve salvar snapshot da marca e da personalização.
+
+
+Pedido white label não deve alterar o produto-base.
+
+
+Pedido white label não deve criar estoque personalizado nesta etapa.
+
+
+Produto personalizado de uma marca não volta ao estoque comum, mas isso será tratado em fase futura.
+
+
+Personalização deve estar vinculada ao produto-base.
+
+
+Asset usado na personalização deve pertencer à marca do tenant e estar aprovado.
+
+
+Personalização não deve depender de arquivo salvo localmente.
+
+
+A operação de produção personalizada ainda será manual/futura.
+
+
+Banco de dados:
+Inspecionar o schema atual antes de alterar.
+Reutilizar, se possível:
+
+
+Order
+
+
+OrderItem
+
+
+Brand
+
+
+BrandAsset
+
+
+CustomizationOption
+
+
+ProductCustomizationOption
+
+
+Product
+
+
+ProductVariant
+
+
+Se o schema atual já possui customizationSnapshot em OrderItem, priorizar reutilizar esse campo em vez de criar tabelas novas desnecessárias.
+Se necessário, adicionar campos opcionais em Order:
+
+
+hasCustomization
+
+
+customizationStatus
+
+
+brandSnapshotJson
+
+
+Se necessário, criar enum CustomizationStatus com valores como:
+
+
+NONE
+
+
+PENDING_REVIEW
+
+
+APPROVED
+
+
+REJECTED
+
+
+IN_PRODUCTION
+
+
+Mas evitar complexidade se o snapshot por item for suficiente nesta etapa.
+Se necessário, adicionar campos opcionais em OrderItem:
+
+
+isCustomized
+
+
+customizationStatus
+
+
+customizationNotes
+
+
+Se customizationSnapshot já existir, usar nele estrutura como:
+{  "mode": "WHITE_LABEL",  "brand": {    "id": "...",    "name": "...",    "slug": "..."  },  "options": [    {      "optionId": "...",      "type": "LOGO",      "name": "Logo frontal",      "assetId": "...",      "assetUrl": "...",      "additionalPrice": "0.00"    }  ],  "notes": "..."}
+Não criar migration desnecessária.
+Não remover campos legados.
+Não tornar brandId obrigatório em Order.
+Não criar relação obrigatória entre Product e Brand.
 Backend:
-
 Arquivos prováveis:
 
-apps/api/src/modules/auth/auth.service.ts
-apps/api/src/modules/auth/strategies/jwt.strategy.ts
-apps/api/src/modules/auth/guards/roles.guard.ts
-apps/api/src/modules/auth/guards/tenant-context.guard.ts
-apps/api/src/modules/auth/guards/tenant-roles.guard.ts, se necessário
-apps/api/src/modules/auth/decorators/current-tenant.decorator.ts
-apps/api/src/common/types/authenticated-user.type.ts
-apps/api/src/modules/tenants/tenants.service.ts
-apps/api/src/modules/catalog/catalog.controller.ts
-apps/api/src/modules/inventory/inventory.service.ts
+
+apps/api/src/modules/orders/orders.service.ts
+
+
+apps/api/src/modules/orders/orders.controller.ts
+
+
+apps/api/src/modules/orders/dto/create-manual-order.dto.ts
+
+
+apps/api/src/modules/orders/dto/create-manual-order-item.dto.ts, se existir separado
+
+
+apps/api/src/modules/orders/dto/order-customization.dto.ts, se necessário
+
+
+apps/api/src/modules/orders/mappers/order.mapper.ts, se existir
+
+
+apps/api/src/modules/brands/brands.service.ts, se necessário para validação
+
+
+apps/api/src/modules/catalog/customization-options.service.ts, se existir
+
+
+apps/api/src/modules/catalog/catalog.service.ts, se necessário
+
+
+packages/database/prisma/schema.prisma, apenas se necessário
+
+
+DTOs esperados:
+Atualizar o DTO de criação de pedido para permitir:
+
+
+brandId?: string
+
+
+items[].variantId
+
+
+items[].quantity
+
+
+items[].customizations?: [...]
+
+
+items[].customizationNotes?: string
+
+
+Estrutura sugerida de item personalizado:
+{  variantId: string;  quantity: number;  customizations?: Array<{    optionId: string;    assetId?: string;    value?: string;    notes?: string;  }>;}
+Regras de validação no service:
+
+
+Se nenhum brandId e nenhuma customização for enviada:
+
+
+criar pedido padrão de dropshipping.
+
+
+
+
+Se brandId for enviado ou algum item tiver customização:
+
+
+tratar como pedido white label.
+
+
+validar marca do tenant.
+
+
+validar marca ativa/aprovada.
+
+
+validar opções de personalização.
+
+
+validar assets aprovados.
+
+
+
+
+Se item tiver customização sem brandId:
+
+
+rejeitar com erro claro.
+
+
+
+
+Se asset não pertencer à marca:
+
+
+rejeitar.
+
+
+
+
+Se asset não estiver aprovado:
+
+
+rejeitar.
+
+
+
+
+Se opção não estiver vinculada ao produto:
+
+
+rejeitar.
+
+
+
+
+Se produto/SKU estiver inativo:
+
+
+rejeitar como já ocorre.
+
+
+
+
+Se estoque insuficiente:
+
+
+rejeitar como já ocorre.
+
+
+
+
+Reserva de estoque deve continuar ocorrendo na mesma transação.
+
+
+Endpoints afetados:
+
+
+POST /api/orders/manual
+
+
+GET /api/orders
+
+
+GET /api/orders/:id
+
+
+GET /api/admin/orders/:id
+
+
+Não criar endpoint novo se o fluxo puder ser incorporado ao pedido manual atual.
+Frontend:
+Arquivos prováveis:
+
+
+apps/web/app/(app)/dashboard/orders/new/page.tsx
+
+
+apps/web/app/(app)/dashboard/orders/[id]/page.tsx
+
+
+apps/web/app/(app)/dashboard/catalog/page.tsx
+
+
+apps/web/services/orders.service.ts
+
+
+apps/web/services/brands.service.ts
+
+
+apps/web/services/catalog.service.ts
+
+
+Funcionalidades frontend:
+Tela de novo pedido:
+
+
+Manter modo padrão como “Dropshipping padrão”.
+
+
+Adicionar toggle ou seleção:
+
+
+“Pedido padrão”
+
+
+“Pedido com marca própria / white label”
+
+
+
+
+Se modo padrão:
+
+
+não exigir marca;
+
+
+não mostrar campos obrigatórios de personalização;
+
+
+criar pedido sem brandId.
+
+
+
+
+Se modo white label:
+
+
+carregar marcas do tenant;
+
+
+permitir selecionar marca aprovada;
+
+
+carregar opções de personalização por produto;
+
+
+permitir selecionar asset aprovado quando aplicável;
+
+
+enviar customizações no payload.
+
+
+
+
+Tratar loading, empty e error states.
+
+
+Mostrar mensagem clara:
+“Você pode vender produtos do catálogo sem marca própria. A marca própria é opcional para pedidos white label.”
+
+
+Tela de detalhe do pedido:
+
+
+Mostrar se pedido é padrão ou white label.
+
+
+Mostrar marca, se houver.
+
+
+Mostrar snapshot de personalização por item.
+
+
+Não depender de dados atuais da marca para exibir histórico; usar snapshot salvo.
+
+
+Catálogo:
+
+
+Continuar exibindo produtos existentes.
+
+
+Indicar “personalização disponível” apenas quando houver opções ativas.
+
+
+Não esconder produtos sem personalização.
+
 
 Critérios de aceitação:
 
-/api/auth/refresh funciona com o refresh token retornado pelo login.
-Refresh token antigo é revogado após rotação.
-Refresh token revogado não pode ser reutilizado.
-Refresh token expirado é rejeitado.
-Usuário inativo não consegue renovar token.
-Rotas tenant-scoped rejeitam ausência de X-Tenant-ID.
-Rotas tenant-scoped rejeitam tenant que não pertence ao usuário.
-Rotas tenant-scoped rejeitam tenant inativo.
-Catálogo de lojista usa validação real de tenant.
-reserveStockInTransaction não permite overbooking em concorrência básica.
-Operações de estoque continuam criando InventoryMovement.
-Testes cobrem refresh token, tenant guard e reserva de estoque.
-README reflete que auth, catálogo e estoque já existem parcialmente.
-Nenhum segredo é commitado.
-Deploy single-service permanece preservado.
+
+Projeto continua em monorepo.
+
+
+render.yaml continua com apenas um Web Service.
+
+
+Não existe serviço separado para frontend.
+
+
+Não existe serviço separado para worker.
+
+
+Não existe cron job nesta etapa.
+
+
+Backend NestJS continua sendo único processo de produção.
+
+
+Frontend continua sendo servido pelo backend como static export.
+
+
+Pedido padrão sem brandId continua funcionando.
+
+
+Pedido padrão sem personalização continua funcionando.
+
+
+Catálogo continua funcionando sem marca.
+
+
+Produto sem personalização continua vendável.
+
+
+Pedido white label com marca aprovada funciona.
+
+
+Pedido white label com marca não aprovada é rejeitado.
+
+
+Pedido com customização sem brandId é rejeitado.
+
+
+Pedido com asset de outra marca é rejeitado.
+
+
+Pedido com asset não aprovado é rejeitado.
+
+
+Pedido com opção não vinculada ao produto é rejeitado.
+
+
+Pedido white label salva snapshot de marca e personalização.
+
+
+Detalhe do pedido exibe snapshot de personalização.
+
+
+Reserva de estoque continua transacional.
+
+
+brandId continua opcional no banco e no DTO.
+
+
+Produto-base continua sem relação obrigatória com marca.
+
+
+Nenhum arquivo é salvo localmente.
+
+
+Schema Prisma valida.
+
+
+Migrations preservam dados.
+
+
+pnpm --filter api build passa.
+
+
+pnpm --filter web build passa.
+
+
+pnpm build:prod passa.
+
 
 Comandos de validação:
 
+
 pnpm install
+
+
 pnpm db:generate
+
+
 pnpm db:validate
+
+
+pnpm db:migrate
+
+
 pnpm --filter api build
+
+
 pnpm --filter api test
+
+
 pnpm --filter web build
+
+
+pnpm build:prod
+
+
 pnpm lint
+
+
 pnpm test
 
-Resultado esperado:
 
+Validação manual esperada:
+
+
+Fazer login.
+
+
+Acessar catálogo.
+
+
+Criar pedido padrão sem marca.
+
+
+Confirmar que pedido padrão reserva estoque.
+
+
+Confirmar que pedido padrão aparece na listagem.
+
+
+Criar ou usar marca aprovada.
+
+
+Criar pedido white label com marca aprovada.
+
+
+Selecionar opção de personalização válida.
+
+
+Selecionar asset aprovado, se aplicável.
+
+
+Confirmar que pedido white label é criado.
+
+
+Confirmar que snapshot de personalização aparece no detalhe.
+
+
+Tentar criar pedido customizado sem marca e confirmar rejeição.
+
+
+Tentar usar asset não aprovado e confirmar rejeição.
+
+
+Tentar usar asset de outra marca e confirmar rejeição.
+
+
+Confirmar que produto sem personalização continua vendável.
+
+
+Confirmar que Render continua com apenas um serviço.
+
+
+Resultado esperado:
 Ao finalizar, explique:
 
-Arquivos alterados.
-Como o refresh token foi corrigido.
-Como o tenant agora é validado.
-Como o RBAC por tenant ficou preparado.
-Como o estoque foi protegido contra concorrência.
-Quais testes foram criados.
-Como testar login, refresh e tenant inválido manualmente.
-Como testar reserva de estoque.
+
+Arquivos criados e alterados.
+
+
+Alterações feitas no schema Prisma, se houver.
+
+
+Migration criada, se houver.
+
+
+Como o pedido padrão foi preservado.
+
+
+Como o pedido white label foi implementado.
+
+
+Como o brandId continua opcional.
+
+
+Como a marca é validada.
+
+
+Como assets aprovados são validados.
+
+
+Como opções de personalização são validadas.
+
+
+Como o snapshot de personalização é salvo.
+
+
+Como testar pedido padrão.
+
+
+Como testar pedido white label.
+
+
+Como testar bloqueios de marca/asset/opção inválidos.
+
+
+Como o catálogo de produtos existentes foi preservado.
+
+
+Como o monorepo foi preservado.
+
+
+Como o deploy single-service no Render foi preservado.
+
+
+Resultado dos comandos de validação.
+
+
 Pendências restantes.
-Se o projeto está pronto para o prompt de pedido manual.
+
+
+Próxima tarefa recomendada.
+
+
+Observações críticas:
+
+
+A plataforma não é apenas white label.
+
+
+O catálogo existente do fornecedor é pilar central do MVP.
+
+
+Dropshipping padrão deve funcionar sem marca própria.
+
+
+White label é opcional.
+
+
+Não criar serviço separado no Render.
+
+
+Não separar frontend e backend em deploys diferentes.
+
+
+Não ativar worker agora.
+
+
+Não criar cron job agora.
+
+
+Não implementar mockup automático.
+
+
+Não implementar upload real nesta tarefa.
+
+
+Não salvar arquivo no filesystem local.
+
+
+Não criar relação obrigatória entre Product e Brand.
+
+
+Não exigir marca em pedido padrão.
+
+
+Não esconder produtos sem personalização.
+
+
+Não bloquear venda de produto existente por ausência de marca.
+
+
+Não usar “D'OUTRO LADO B2B”.
+
+
+Não definir nome definitivo da plataforma.
+

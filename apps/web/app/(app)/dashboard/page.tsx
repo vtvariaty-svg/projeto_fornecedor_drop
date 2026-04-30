@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService, UserData, TenantData } from "../../../services/auth.service";
+import { tenantsService } from "../../../services/tenants.service";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -10,6 +11,9 @@ export default function DashboardPage() {
   const [tenants, setTenants] = useState<TenantData[]>([]);
   const [activeTenant, setActiveTenant] = useState<TenantData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const [bootstrapMsg, setBootstrapMsg] = useState<string | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -42,12 +46,33 @@ export default function DashboardPage() {
     localStorage.setItem("drop:tenant_id", t.id);
   }
 
+  async function handleBootstrap() {
+    setBootstrapping(true);
+    setBootstrapError(null);
+    setBootstrapMsg(null);
+    try {
+      const tenant = await tenantsService.bootstrapCurrentUserTenant();
+      setTenants([tenant]);
+      setActiveTenant(tenant);
+      localStorage.setItem("drop:tenant_id", tenant.id);
+      setBootstrapMsg(`✅ Tenant "${tenant.name}" criado e vinculado com sucesso!`);
+    } catch (e) {
+      setBootstrapError((e as Error).message ?? "Erro ao criar tenant inicial.");
+    } finally {
+      setBootstrapping(false);
+    }
+  }
+
   if (loading) return <p style={styles.center}>Carregando...</p>;
   if (!user) return null;
+
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const hasNoTenants = tenants.length === 0;
 
   return (
     <main style={styles.main}>
       <div style={styles.container}>
+        {/* Header */}
         <header style={styles.header}>
           <h1 style={styles.title}>Dashboard</h1>
           <button onClick={handleLogout} style={styles.logoutBtn}>
@@ -55,6 +80,7 @@ export default function DashboardPage() {
           </button>
         </header>
 
+        {/* Dados do usuário */}
         <section style={styles.card}>
           <h2 style={styles.section}>Usuário autenticado</h2>
           <p><strong>Nome:</strong> {user.name}</p>
@@ -62,60 +88,102 @@ export default function DashboardPage() {
           <p><strong>Perfil:</strong> {user.role}</p>
         </section>
 
-        <section style={styles.card}>
-          <h2 style={styles.section}>Seus tenants</h2>
-          {tenants.length === 0 ? (
-            <p style={{ color: "#666" }}>Nenhum tenant vinculado.</p>
-          ) : (
-            <ul style={styles.list}>
-              {tenants.map((t) => (
-                <li key={t.id} style={styles.listItem}>
-                  <button
-                    onClick={() => selectTenant(t)}
-                    style={{
-                      ...styles.tenantBtn,
-                      background: activeTenant?.id === t.id ? "#111" : "#f0f0f0",
-                      color: activeTenant?.id === t.id ? "#fff" : "#333",
-                    }}
-                  >
-                    {t.name} ({t.slug}) — {t.role}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {activeTenant && (
-          <section style={styles.card}>
-            <h2 style={styles.section}>Acesso rápido</h2>
-            <div style={styles.quickLinks}>
-              <button
-                onClick={() => router.push("/dashboard/catalog")}
-                style={styles.quickBtn}
-              >
-                🛍 Ver Catálogo
-              </button>
-              <button
-                onClick={() => router.push("/dashboard/orders")}
-                style={styles.quickBtn}
-              >
-                📦 Meus Pedidos
-              </button>
-              <button
-                onClick={() => router.push("/dashboard/orders/new")}
-                style={{ ...styles.quickBtn, background: "#166534" }}
-              >
-                + Novo Pedido
-              </button>
-              <button
-                onClick={() => router.push("/dashboard/brands")}
-                style={{ ...styles.quickBtn, background: "#4f46e5" }}
-              >
-                Brand Studio
-              </button>
-            </div>
+        {/* ── Estado: sem tenant + SUPER_ADMIN → Bootstrap ── */}
+        {hasNoTenants && isSuperAdmin && (
+          <section style={{ ...styles.card, borderLeft: "4px solid #f59e0b" }}>
+            <h2 style={{ ...styles.section, color: "#92400e" }}>⚙️ Configuração inicial necessária</h2>
+            <p style={{ color: "#78350f", marginBottom: "1rem" }}>
+              Você ainda não está vinculado a nenhuma empresa/tenant na plataforma.
+              <br />
+              Como administrador, você pode criar e vincular um tenant inicial para começar a operar.
+            </p>
+            {bootstrapMsg && (
+              <p style={{ color: "#166534", fontWeight: 600, marginBottom: "0.75rem" }}>
+                {bootstrapMsg}
+              </p>
+            )}
+            {bootstrapError && (
+              <p style={{ color: "#991b1b", marginBottom: "0.75rem" }}>
+                ❌ {bootstrapError}
+              </p>
+            )}
+            <button
+              onClick={handleBootstrap}
+              disabled={bootstrapping}
+              style={styles.bootstrapBtn}
+            >
+              {bootstrapping ? "Criando tenant..." : "Criar / vincular tenant inicial"}
+            </button>
           </section>
+        )}
+
+        {/* ── Estado: sem tenant + usuário comum → Mensagem ── */}
+        {hasNoTenants && !isSuperAdmin && (
+          <section style={{ ...styles.card, borderLeft: "4px solid #6b7280" }}>
+            <h2 style={{ ...styles.section, color: "#374151" }}>Acesso não disponível</h2>
+            <p style={{ color: "#4b5563" }}>
+              Sua conta ainda não está vinculada a nenhuma empresa/tenant.
+              <br />
+              Solicite acesso ao administrador da plataforma.
+            </p>
+          </section>
+        )}
+
+        {/* ── Estado: tem tenants → Seleção + Atalhos ── */}
+        {!hasNoTenants && (
+          <>
+            <section style={styles.card}>
+              <h2 style={styles.section}>Seus tenants</h2>
+              <ul style={styles.list}>
+                {tenants.map((t) => (
+                  <li key={t.id} style={styles.listItem}>
+                    <button
+                      onClick={() => selectTenant(t)}
+                      style={{
+                        ...styles.tenantBtn,
+                        background: activeTenant?.id === t.id ? "#111" : "#f0f0f0",
+                        color: activeTenant?.id === t.id ? "#fff" : "#333",
+                      }}
+                    >
+                      {t.name} ({t.slug}) — {t.role}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            {activeTenant && (
+              <section style={styles.card}>
+                <h2 style={styles.section}>Acesso rápido</h2>
+                <div style={styles.quickLinks}>
+                  <button
+                    onClick={() => router.push("/dashboard/catalog")}
+                    style={styles.quickBtn}
+                  >
+                    🛍 Ver Catálogo
+                  </button>
+                  <button
+                    onClick={() => router.push("/dashboard/orders")}
+                    style={styles.quickBtn}
+                  >
+                    📦 Meus Pedidos
+                  </button>
+                  <button
+                    onClick={() => router.push("/dashboard/orders/new")}
+                    style={{ ...styles.quickBtn, background: "#166534" }}
+                  >
+                    + Novo Pedido
+                  </button>
+                  <button
+                    onClick={() => router.push("/dashboard/brands")}
+                    style={{ ...styles.quickBtn, background: "#4f46e5" }}
+                  >
+                    🏷 Brand Studio
+                  </button>
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     </main>
@@ -136,4 +204,5 @@ const styles: Record<string, React.CSSProperties> = {
   tenantBtn: { border: "none", borderRadius: "4px", padding: "0.4rem 0.75rem", cursor: "pointer", fontSize: "0.875rem" },
   quickLinks: { display: "flex", gap: "0.75rem", flexWrap: "wrap" },
   quickBtn: { padding: "0.6rem 1.25rem", background: "#111", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "0.9rem" },
+  bootstrapBtn: { padding: "0.65rem 1.5rem", background: "#d97706", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: 700, fontSize: "0.95rem" },
 };

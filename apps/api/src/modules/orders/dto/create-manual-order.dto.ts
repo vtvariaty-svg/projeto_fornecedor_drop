@@ -2,21 +2,54 @@ import {
   IsArray,
   IsEmail,
   IsInt,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+
+export class OrderItemCustomizationDto {
+  @IsString()
+  @IsNotEmpty()
+  optionId!: string;
+
+  @IsOptional()
+  @IsString()
+  assetId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  value?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
 
 export class CreateManualOrderItemDto {
   @IsString()
   variantId!: string;
 
   @IsInt()
-  @Min(1, { message: "quantity deve ser no mínimo 1" })
+  @Min(1, { message: "quantity deve ser no minimo 1" })
   quantity!: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemCustomizationDto)
+  customizations?: OrderItemCustomizationDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  customizationNotes?: string;
 }
 
 export class ShippingAddressDto {

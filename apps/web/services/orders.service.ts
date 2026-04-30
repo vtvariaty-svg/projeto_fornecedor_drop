@@ -24,6 +24,24 @@ export interface ShippingAddress {
   number?: string;
 }
 
+export interface CustomizationOptionSnapshot {
+  optionId: string;
+  type?: string | null;
+  name: string;
+  assetId?: string | null;
+  assetUrl?: string | null;
+  value?: string | null;
+  additionalPrice: string;
+  notes?: string | null;
+}
+
+export interface CustomizationSnapshot {
+  mode: "WHITE_LABEL";
+  brand: { id: string; name: string; slug: string };
+  options: CustomizationOptionSnapshot[];
+  notes?: string | null;
+}
+
 export interface OrderItemData {
   id: string;
   skuSnapshot: string;
@@ -33,6 +51,10 @@ export interface OrderItemData {
   quantity: number;
   subtotalAmount: number;
   productVariantId: string;
+  productId: string;
+  isCustomized: boolean;
+  customizationNotes?: string | null;
+  customizationSnapshot: Record<string, unknown> | CustomizationSnapshot;
 }
 
 export interface OrderStatusHistoryData {
@@ -41,6 +63,12 @@ export interface OrderStatusHistoryData {
   toStatus: OrderStatus;
   reason: string | null;
   createdAt: string;
+}
+
+export interface OrderBrandData {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 export interface OrderData {
@@ -57,6 +85,9 @@ export interface OrderData {
   discountAmount: number;
   totalAmount: number;
   notes?: string;
+  hasCustomization: boolean;
+  brandId?: string | null;
+  brand?: OrderBrandData | null;
   cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -73,9 +104,18 @@ export interface OrderListResponse {
   pages: number;
 }
 
+export interface OrderItemCustomizationPayload {
+  optionId: string;
+  assetId?: string;
+  value?: string;
+  notes?: string;
+}
+
 export interface CreateOrderItemPayload {
   variantId: string;
   quantity: number;
+  customizations?: OrderItemCustomizationPayload[];
+  customizationNotes?: string;
 }
 
 export interface CreateManualOrderPayload {
@@ -94,7 +134,7 @@ async function authedRequest<T>(
   tenantId?: string
 ): Promise<T> {
   const token = authStorage.getAccessToken();
-  if (!token) throw new Error("Não autenticado");
+  if (!token) throw new Error("Nao autenticado");
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,

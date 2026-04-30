@@ -8,6 +8,7 @@ import {
   OrderData,
   OrderStatus,
   ShippingAddress,
+  CustomizationSnapshot,
 } from "../../../../services/orders.service";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -100,12 +101,20 @@ function OrderDetail({ orderId, onBack }: { orderId: string; onBack: () => void 
     <div>
       <div style={s.detailHeader}>
         <button onClick={onBack} style={s.backBtn}>← Voltar para lista</button>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <h2 style={s.detailTitle}>{order.orderNumber}</h2>
           <span style={{ ...s.badge, background: STATUS_COLOR[order.status] + "22", color: STATUS_COLOR[order.status], border: `1px solid ${STATUS_COLOR[order.status]}44` }}>
             {STATUS_LABEL[order.status]}
           </span>
+          {order.hasCustomization && (
+            <span style={s.badgeWL}>White Label</span>
+          )}
         </div>
+        {order.hasCustomization && order.brand && (
+          <p style={s.brandLine}>
+            Marca: <strong>{order.brand.name}</strong>
+          </p>
+        )}
       </div>
 
       <div style={s.grid}>
@@ -138,12 +147,15 @@ function OrderDetail({ orderId, onBack }: { orderId: string; onBack: () => void 
         <h3 style={s.cardTitle}>Itens</h3>
         <table style={s.table}>
           <thead>
-            <tr>{["Produto", "SKU", "Qtd", "Unitário", "Subtotal"].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
+            <tr>{["Produto", "SKU", "Qtd", "Unitario", "Subtotal"].map((h) => <th key={h} style={s.th}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {order.items?.map((item) => (
               <tr key={item.id}>
-                <td style={s.td}>{item.productNameSnapshot} — {item.variantNameSnapshot}</td>
+                <td style={s.td}>
+                  <div>{item.productNameSnapshot} — {item.variantNameSnapshot}</div>
+                  {item.isCustomized && <span style={s.badgeWLSm}>Personalizado</span>}
+                </td>
                 <td style={s.td}><code>{item.skuSnapshot}</code></td>
                 <td style={s.td}>{item.quantity}</td>
                 <td style={s.td}>{formatPrice(Number(item.unitPriceSnapshot))}</td>
@@ -152,6 +164,46 @@ function OrderDetail({ orderId, onBack }: { orderId: string; onBack: () => void 
             ))}
           </tbody>
         </table>
+
+        {/* Snapshots de personalização por item */}
+        {order.items?.some((i) => i.isCustomized) && (
+          <div style={{ marginTop: "1rem" }}>
+            <h4 style={{ margin: "0 0 0.75rem", fontSize: "0.9rem", color: "#374151" }}>Personalizacao</h4>
+            {order.items
+              .filter((i) => i.isCustomized)
+              .map((item) => {
+                const snap = item.customizationSnapshot as unknown as CustomizationSnapshot;
+                if (!snap || snap.mode !== "WHITE_LABEL") return null;
+                return (
+                  <div key={item.id} style={s.custPanel}>
+                    <p style={s.custPanelTitle}>{item.productNameSnapshot} — {item.variantNameSnapshot}</p>
+                    {item.customizationNotes && (
+                      <p style={s.custNote}>Obs: {item.customizationNotes}</p>
+                    )}
+                    {snap.options.map((opt, idx) => (
+                      <div key={idx} style={s.custOptRow}>
+                        <span style={s.custOptName}>{opt.name}</span>
+                        {opt.type && <span style={s.badgeSm}>{opt.type}</span>}
+                        {opt.assetUrl && (
+                          <span style={s.custOptVal}>
+                            Asset:{" "}
+                            <a href={opt.assetUrl} target="_blank" rel="noreferrer" style={{ color: "#3b82f6" }}>
+                              ver
+                            </a>
+                          </span>
+                        )}
+                        {opt.value && <span style={s.custOptVal}>Valor: {opt.value}</span>}
+                        {opt.notes && <span style={s.custOptVal}>Nota: {opt.notes}</span>}
+                        {opt.additionalPrice && opt.additionalPrice !== "0.00" && (
+                          <span style={s.custOptVal}>+{formatPrice(Number(opt.additionalPrice))}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
 
       {order.statusHistory && order.statusHistory.length > 0 && (
@@ -287,7 +339,10 @@ function OrdersPageInner() {
               <tbody>
                 {orders.map((o) => (
                   <tr key={o.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                    <td style={s.td}><span style={s.orderNum}>{o.orderNumber}</span></td>
+                    <td style={s.td}>
+                      <span style={s.orderNum}>{o.orderNumber}</span>
+                      {o.hasCustomization && <span style={{ ...s.badgeWL, marginLeft: "0.4rem", fontSize: "0.65rem" }}>WL</span>}
+                    </td>
                     <td style={s.td}>{o.customerName}</td>
                     <td style={s.td}>
                       <span style={{ ...s.badge, background: STATUS_COLOR[o.status] + "22", color: STATUS_COLOR[o.status], border: `1px solid ${STATUS_COLOR[o.status]}44` }}>
@@ -365,4 +420,15 @@ const s: Record<string, React.CSSProperties> = {
   timelineReason: { margin: "0 0 0.1rem", fontSize: "0.8rem", color: "#555" },
   timelineDate: { margin: 0, fontSize: "0.75rem", color: "#999" },
   cancelBtn: { padding: "0.65rem 1.5rem", background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 },
+  // White label
+  badgeWL: { display: "inline-block", background: "#ede9fe", color: "#5b21b6", fontSize: "0.75rem", padding: "0.2rem 0.6rem", borderRadius: 20, fontWeight: 700 },
+  badgeWLSm: { display: "inline-block", background: "#ede9fe", color: "#5b21b6", fontSize: "0.7rem", padding: "0.1rem 0.4rem", borderRadius: 10, fontWeight: 600, marginTop: "0.2rem" },
+  badgeSm: { display: "inline-block", background: "#f3f4f6", color: "#374151", fontSize: "0.7rem", padding: "0.1rem 0.4rem", borderRadius: 10 },
+  brandLine: { margin: "0.35rem 0 0", fontSize: "0.9rem", color: "#555" },
+  custPanel: { border: "1px solid #e5e7eb", borderRadius: 6, padding: "0.75rem", marginBottom: "0.5rem", background: "#f8fafc" },
+  custPanelTitle: { margin: "0 0 0.5rem", fontWeight: 600, fontSize: "0.9rem" },
+  custNote: { margin: "0 0 0.4rem", fontSize: "0.8rem", color: "#555", fontStyle: "italic" },
+  custOptRow: { display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem", fontSize: "0.85rem" },
+  custOptName: { fontWeight: 600 },
+  custOptVal: { color: "#555" },
 };

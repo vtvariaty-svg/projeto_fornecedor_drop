@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@nestjs/common";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { BrandStatus, OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { OrdersService } from "./orders.service";
 import { PrismaService } from "../../common/prisma.service";
 import { InventoryService } from "../inventory/inventory.service";
@@ -52,9 +52,34 @@ const mockOrder = {
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 
+const BRAND_ID = "brand-1";
+const OPTION_ID = "option-1";
+const ASSET_ID = "asset-1";
+
+const mockActiveBrand = {
+  id: BRAND_ID,
+  name: "Minha Marca",
+  slug: "minha-marca",
+  status: BrandStatus.ACTIVE,
+  assets: [{ id: ASSET_ID, type: "LOGO", url: "https://example.com/logo.png" }],
+};
+
+const mockOptionLink = {
+  additionalPrice: null,
+  customizationOption: {
+    id: OPTION_ID,
+    name: "Logo frontal",
+    type: "LOGO",
+    isActive: true,
+    additionalPrice: null,
+  },
+};
+
 function makeTx() {
   return {
     productVariant: { findUnique: jest.fn().mockResolvedValue(mockVariantActive) },
+    brand: { findFirst: jest.fn().mockResolvedValue(mockActiveBrand) },
+    productCustomizationOption: { findUnique: jest.fn().mockResolvedValue(mockOptionLink) },
     order: {
       create: jest.fn().mockResolvedValue(mockOrder),
       findFirst: jest.fn().mockResolvedValue(mockOrder),
@@ -218,6 +243,100 @@ describe("OrdersService", () => {
       await expect(
         service.createManualOrder(TENANT_ID, makeDto(), USER_ID)
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejeita personalizacao sem brandId", async () => {
+      const dto = {
+        ...makeDto(),
+        items: [{ variantId: VARIANT_ID, quantity: 1, customizations: [{ optionId: OPTION_ID }] }],
+      };
+      await expect(
+        service.createManualOrder(TENANT_ID, dto, USER_ID)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("aceita pedido white label com marca aprovada", async () => {
+      const tx = makeTx();
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      const result = await service.createManualOrder(
+        TENANT_ID,
+        { ...makeDto(), brandId: BRAND_ID },
+        USER_ID
+      );
+      expect(result).toBeDefined();
+    });
+
+    it("rejeita marca nao pertencente ao tenant", async () => {
+      const tx = makeTx();
+      tx.brand.findFirst.mockResolvedValue(null);
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      await expect(
+        service.createManualOrder(TENANT_ID, { ...makeDto(), brandId: "outra-marca" }, USER_ID)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejeita marca nao aprovada (DRAFT)", async () => {
+      const tx = makeTx();
+      tx.brand.findFirst.mockResolvedValue({ ...mockActiveBrand, status: BrandStatus.DRAFT });
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      await expect(
+        service.createManualOrder(TENANT_ID, { ...makeDto(), brandId: BRAND_ID }, USER_ID)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejeita opcao de personalizacao nao vinculada ao produto", async () => {
+      const tx = makeTx();
+      tx.productCustomizationOption.findUnique.mockResolvedValue(null);
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      const dto = {
+        ...makeDto(),
+        brandId: BRAND_ID,
+        items: [{ variantId: VARIANT_ID, quantity: 1, customizations: [{ optionId: "opt-invalido" }] }],
+      };
+      await expect(
+        service.createManualOrder(TENANT_ID, dto, USER_ID)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejeita asset nao pertencente a marca aprovada", async () => {
+      const tx = makeTx();
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      const dto = {
+        ...makeDto(),
+        brandId: BRAND_ID,
+        items: [{
+          variantId: VARIANT_ID,
+          quantity: 1,
+          customizations: [{ optionId: OPTION_ID, assetId: "asset-invalido" }],
+        }],
+      };
+      await expect(
+        service.createManualOrder(TENANT_ID, dto, USER_ID)
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("aceita pedido white label com opcao e asset validos e salva snapshot", async () => {
+      const tx = makeTx();
+      prisma.$transaction.mockImplementationOnce((cb: (tx: unknown) => unknown) => cb(tx));
+      const dto = {
+        ...makeDto(),
+        brandId: BRAND_ID,
+        items: [{
+          variantId: VARIANT_ID,
+          quantity: 1,
+          customizations: [{ optionId: OPTION_ID, assetId: ASSET_ID }],
+          customizationNotes: "Colocar logo centralizado",
+        }],
+      };
+      await service.createManualOrder(TENANT_ID, dto, USER_ID);
+      expect(tx.orderItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            isCustomized: true,
+            customizationNotes: "Colocar logo centralizado",
+          }),
+        })
+      );
     });
   });
 

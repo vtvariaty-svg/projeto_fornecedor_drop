@@ -1,3 +1,20 @@
+/**
+ * Seed idempotente para desenvolvimento e produção.
+ *
+ * Variáveis opcionais (se não definidas, usam defaults de dev):
+ *   SEED_ADMIN_EMAIL    — e-mail do usuário admin a criar/vincular (default: admin@drop.dev)
+ *   SEED_ADMIN_PASSWORD — senha do admin (default: Admin@123 — NUNCA usar em produção sem trocar)
+ *   SEED_ADMIN_NAME     — nome exibido (default: Admin Drop)
+ *   SEED_TENANT_NAME    — nome do tenant principal (default: Loja Demo)
+ *   SEED_TENANT_SLUG    — slug do tenant principal (default: loja-demo)
+ *
+ * Comportamento:
+ *   - Tenant e usuário são criados via upsert — safe para re-executar.
+ *   - Se o usuário já existe, a senha NÃO é sobrescrita (update: {}).
+ *   - Se quiser forçar reset de senha, delete o usuário antes de rodar o seed.
+ *   - Produtos, variantes e estoque também são idempotentes.
+ */
+
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 
@@ -6,27 +23,40 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Iniciando seed...");
 
-  // ─── Tenant & Admin ───────────────────────────────────────────────────────
+  // ─── Configuração via env (opcional) ─────────────────────────────────────
+
+  const adminEmail    = process.env.SEED_ADMIN_EMAIL    ?? "admin@drop.dev";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin@123";
+  const adminName     = process.env.SEED_ADMIN_NAME     ?? "Admin Drop";
+  const tenantName    = process.env.SEED_TENANT_NAME    ?? "Loja Demo";
+  const tenantSlug    = process.env.SEED_TENANT_SLUG    ?? "loja-demo";
+
+  // ─── Tenant Principal ─────────────────────────────────────────────────────
 
   const tenant = await prisma.tenant.upsert({
-    where: { slug: "loja-demo" },
+    where: { slug: tenantSlug },
     update: {},
-    create: { name: "Loja Demo", slug: "loja-demo", status: "ACTIVE" },
+    create: { name: tenantName, slug: tenantSlug, status: "ACTIVE" },
   });
 
-  const passwordHash = await bcrypt.hash("Admin@123", 12);
+  // ─── Usuário Admin ────────────────────────────────────────────────────────
+  // A senha só é usada na CRIAÇÃO. Se o usuário já existir, não é sobrescrita.
+
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   const user = await prisma.user.upsert({
-    where: { email: "admin@drop.dev" },
-    update: {},
+    where: { email: adminEmail },
+    update: {},  // nunca sobrescreve senha de usuário existente
     create: {
-      name: "Admin Drop",
-      email: "admin@drop.dev",
+      name: adminName,
+      email: adminEmail,
       passwordHash,
       role: "SUPER_ADMIN",
       isActive: true,
     },
   });
+
+  // ─── Vínculo Admin ↔ Tenant ───────────────────────────────────────────────
 
   await prisma.tenantUser.upsert({
     where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
@@ -64,7 +94,7 @@ async function main() {
     },
   });
 
-  const mochilaDraft = await prisma.product.upsert({
+  await prisma.product.upsert({
     where: { slug: "mochila-canvas" },
     update: {},
     create: {
@@ -158,8 +188,8 @@ async function main() {
 
   // ─── Mídias ───────────────────────────────────────────────────────────────
 
-  const existingMedia = await prisma.productMedia.count({ where: { productId: tote.id } });
-  if (existingMedia === 0) {
+  const existingToteMedia = await prisma.productMedia.count({ where: { productId: tote.id } });
+  if (existingToteMedia === 0) {
     await prisma.productMedia.createMany({
       data: [
         {
@@ -192,7 +222,7 @@ async function main() {
     });
   }
 
-  // ─── Estoque Inicial ─────────────────────────────────────────────────────
+  // ─── Estoque Inicial ──────────────────────────────────────────────────────
 
   const stockMap: Record<string, number> = {
     "TOTE-PRETO-M":    50,
@@ -238,9 +268,14 @@ async function main() {
   }
 
   console.log("✅ Seed concluído!");
-  console.log(`   Tenant : ${tenant.slug}`);
-  console.log(`   Usuário: ${user.email} / senha: Admin@123`);
+  console.log(`   Tenant : ${tenant.slug} (${tenant.name})`);
+  console.log(`   Usuário: ${user.email}`);
   console.log(`   Produtos: Tote (3 SKUs), Clutch (2 SKUs), Mochila (draft)`);
+  console.log("");
+  console.log("   💡 Para bootstrap em produção com usuário personalizado:");
+  console.log("   SEED_ADMIN_EMAIL=seu@email.com SEED_ADMIN_NAME='Seu Nome' \\");
+  console.log("   SEED_TENANT_NAME='Minha Empresa' SEED_TENANT_SLUG='minha-empresa' \\");
+  console.log("   pnpm db:seed");
 }
 
 main()
@@ -249,4 +284,3 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
-

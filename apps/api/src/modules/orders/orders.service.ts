@@ -4,26 +4,25 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
-import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { BrandStatus, OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { CreateManualOrderDto } from "./dto/create-manual-order.dto";
 import { CancelOrderDto } from "./dto/cancel-order.dto";
 import { ListOrdersQueryDto } from "./dto/list-orders-query.dto";
 
-// Status que permitem cancelamento pelo lojista
 const CANCELLABLE_STATUSES: OrderStatus[] = [
   OrderStatus.CONFIRMED,
   OrderStatus.PENDING_FULFILLMENT,
 ];
 
-// Campos que NÃO devem ser retornados ao lojista
 const SAFE_ORDER_SELECT = {
   id: true,
   orderNumber: true,
   status: true,
   paymentStatus: true,
   notes: true,
+  hasCustomization: true,
   customerName: true,
   customerEmail: true,
   customerPhone: true,
@@ -37,6 +36,9 @@ const SAFE_ORDER_SELECT = {
   updatedAt: true,
   tenantId: true,
   brandId: true,
+  brand: {
+    select: { id: true, name: true, slug: true },
+  },
   items: {
     select: {
       id: true,
@@ -45,6 +47,8 @@ const SAFE_ORDER_SELECT = {
       variantNameSnapshot: true,
       unitPriceSnapshot: true,
       customizationSnapshot: true,
+      isCustomized: true,
+      customizationNotes: true,
       quantity: true,
       subtotalAmount: true,
       productVariantId: true,
@@ -72,7 +76,6 @@ export class OrdersService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  /** Valida que o usuário pertence ao tenant informado */
   private async assertTenantAccess(userId: string, tenantId: string) {
     const membership = await this.prisma.tenantUser.findFirst({
       where: { userId, tenantId, isActive: true },
@@ -83,7 +86,6 @@ export class OrdersService {
     }
   }
 
-  /** Gera número de pedido único: ORD-YYYYMMDD-XXXXX */
   private generateOrderNumber(): string {
     const date = new Date();
     const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
@@ -104,9 +106,54 @@ export class OrdersService {
       throw new BadRequestException("Pedido deve ter ao menos um item");
     }
 
+    const hasAnyCustomization = dto.items.some(
+      (i) => (i.customizations?.length ?? 0) > 0
+    );
+    const isWhiteLabel = !!dto.brandId || hasAnyCustomization;
+
+    if (hasAnyCustomization && !dto.brandId) {
+      throw new BadRequestException(
+        "brandId e obrigatorio para pedidos com personalizacao"
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
-      // ── 1. Validar e coletar dados de cada item ──────────────────────────
-      const resolvedItems: Array<{
+      // ── 0. White label: validar marca ─────────────────────────────────────
+      let brandSnapshot: { id: string; name: string; slug: string } | null = null;
+      let approvedAssets: Array<{ id: string; type: string; url: string }> = [];
+
+      if (isWhiteLabel && dto.brandId) {
+        const brand = await tx.brand.findFirst({
+          where: { id: dto.brandId, tenantId },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            status: true,
+            assets: {
+              where: { isApproved: true },
+              select: { id: true, type: true, url: true },
+            },
+          },
+        });
+
+        if (!brand) {
+          throw new BadRequestException(
+            "Marca nao encontrada ou nao pertence a este tenant"
+          );
+        }
+        if (brand.status !== BrandStatus.ACTIVE) {
+          throw new BadRequestException(
+            "Apenas marcas aprovadas (ACTIVE) podem ser usadas em pedidos white label"
+          );
+        }
+
+        brandSnapshot = { id: brand.id, name: brand.name, slug: brand.slug };
+        approvedAssets = brand.assets;
+      }
+
+      // ── 1. Validar e coletar dados de cada item ───────────────────────────
+      type ResolvedItem = {
         variant: {
           id: string;
           sku: string;
@@ -116,7 +163,12 @@ export class OrdersService {
           product: { id: string; name: string; status: string };
         };
         quantity: number;
-      }> = [];
+        customizationSnapshot: Prisma.InputJsonValue;
+        isCustomized: boolean;
+        customizationNotes?: string;
+      };
+
+      const resolvedItems: ResolvedItem[] = [];
 
       for (const item of dto.items) {
         const variant = await tx.productVariant.findUnique({
@@ -132,7 +184,7 @@ export class OrdersService {
         });
 
         if (!variant) {
-          throw new BadRequestException(`SKU não encontrado: ${item.variantId}`);
+          throw new BadRequestException(`SKU nao encontrado: ${item.variantId}`);
         }
         if (variant.status !== "ACTIVE") {
           throw new BadRequestException(
@@ -145,7 +197,89 @@ export class OrdersService {
           );
         }
 
-        resolvedItems.push({ variant, quantity: item.quantity });
+        // ── Construir snapshot de personalização ──────────────────────────
+        let itemSnapshot: Prisma.InputJsonValue = {};
+        const isItemCustomized = (item.customizations?.length ?? 0) > 0;
+
+        if (isItemCustomized && brandSnapshot) {
+          const options = [];
+
+          for (const cust of item.customizations!) {
+            const link = await tx.productCustomizationOption.findUnique({
+              where: {
+                productId_customizationOptionId: {
+                  productId: variant.product.id,
+                  customizationOptionId: cust.optionId,
+                },
+              },
+              select: {
+                additionalPrice: true,
+                customizationOption: {
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    isActive: true,
+                    additionalPrice: true,
+                  },
+                },
+              },
+            });
+
+            if (!link) {
+              throw new BadRequestException(
+                `Opcao de personalizacao nao vinculada ao produto: ${cust.optionId}`
+              );
+            }
+            if (!link.customizationOption.isActive) {
+              throw new BadRequestException(
+                `Opcao de personalizacao inativa: ${link.customizationOption.name}`
+              );
+            }
+
+            let assetUrl: string | null = null;
+            if (cust.assetId) {
+              const asset = approvedAssets.find((a) => a.id === cust.assetId);
+              if (!asset) {
+                throw new BadRequestException(
+                  `Asset nao encontrado, nao pertence a marca ou nao esta aprovado: ${cust.assetId}`
+                );
+              }
+              assetUrl = asset.url;
+            }
+
+            const additionalPrice =
+              link.additionalPrice?.toString() ??
+              link.customizationOption.additionalPrice?.toString() ??
+              "0.00";
+
+            options.push({
+              optionId: link.customizationOption.id,
+              type: link.customizationOption.type ?? null,
+              name: link.customizationOption.name,
+              assetId: cust.assetId ?? null,
+              assetUrl,
+              value: cust.value ?? null,
+              additionalPrice,
+              notes: cust.notes ?? null,
+            });
+          }
+
+          itemSnapshot = {
+            mode: "WHITE_LABEL",
+            brand: brandSnapshot,
+            options,
+            notes: item.customizationNotes ?? null,
+          };
+        }
+
+        resolvedItems.push({
+          variant,
+          quantity: item.quantity,
+          customizationSnapshot: itemSnapshot,
+          isCustomized: isItemCustomized,
+          customizationNotes: item.customizationNotes,
+        });
       }
 
       // ── 2. Calcular totais ────────────────────────────────────────────────
@@ -153,7 +287,7 @@ export class OrdersService {
       for (const { variant, quantity } of resolvedItems) {
         subtotal = subtotal.add(variant.salePrice.mul(quantity));
       }
-      const shipping = new Prisma.Decimal(0); // frete não implementado nesta fase
+      const shipping = new Prisma.Decimal(0);
       const discount = new Prisma.Decimal(0);
       const total = subtotal.add(shipping).sub(discount);
 
@@ -165,24 +299,33 @@ export class OrdersService {
           orderNumber,
           tenantId,
           brandId: dto.brandId ?? null,
+          hasCustomization: isWhiteLabel,
           status: OrderStatus.CONFIRMED,
           paymentStatus: PaymentStatus.MANUAL_CONFIRMED,
           notes: dto.notes,
           customerName: dto.customerName,
           customerEmail: dto.customerEmail,
           customerPhone: dto.customerPhone,
-          shippingAddressJson: JSON.parse(JSON.stringify(dto.shippingAddress)) as Prisma.InputJsonValue,
+          shippingAddressJson: JSON.parse(
+            JSON.stringify(dto.shippingAddress)
+          ) as Prisma.InputJsonValue,
           subtotalAmount: subtotal,
           shippingAmount: shipping,
           discountAmount: discount,
           totalAmount: total,
-          total, // campo legado
+          total,
           createdByUserId: userId,
         },
       });
 
       // ── 4. Criar itens com snapshot ───────────────────────────────────────
-      for (const { variant, quantity } of resolvedItems) {
+      for (const {
+        variant,
+        quantity,
+        customizationSnapshot,
+        isCustomized,
+        customizationNotes,
+      } of resolvedItems) {
         const lineTotal = variant.salePrice.mul(quantity);
         await tx.orderItem.create({
           data: {
@@ -193,10 +336,11 @@ export class OrdersService {
             productNameSnapshot: variant.product.name,
             variantNameSnapshot: variant.name,
             unitPriceSnapshot: variant.salePrice,
-            customizationSnapshot: {},
+            customizationSnapshot,
+            isCustomized,
+            customizationNotes: customizationNotes ?? null,
             quantity,
             subtotalAmount: lineTotal,
-            // campos legados
             snapshotName: `${variant.product.name} — ${variant.name}`,
             snapshotSku: variant.sku,
             snapshotPrice: variant.salePrice,
@@ -207,19 +351,21 @@ export class OrdersService {
         });
       }
 
-      // ── 5. Criar histórico inicial de status ──────────────────────────────
+      // ── 5. Histórico inicial de status ────────────────────────────────────
       await tx.orderStatusHistory.create({
         data: {
           orderId: order.id,
           fromStatus: null,
           toStatus: OrderStatus.CONFIRMED,
-          status: OrderStatus.CONFIRMED, // campo legado
-          reason: "Pedido criado manualmente",
+          status: OrderStatus.CONFIRMED,
+          reason: isWhiteLabel
+            ? "Pedido white label criado manualmente"
+            : "Pedido criado manualmente",
           createdByUserId: userId,
         },
       });
 
-      // ── 6. Reservar estoque para cada item (dentro da mesma transação) ────
+      // ── 6. Reservar estoque (dentro da mesma transação) ───────────────────
       for (const { variant, quantity } of resolvedItems) {
         await this.inventory.reserveStockInTransaction(
           variant.id,
@@ -229,7 +375,6 @@ export class OrdersService {
         );
       }
 
-      // ── 7. Retornar pedido sem dados internos sensíveis ───────────────────
       return tx.order.findUnique({
         where: { id: order.id },
         select: SAFE_ORDER_SELECT,
@@ -246,7 +391,7 @@ export class OrdersService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = { tenantId };
-    if (status) where.status = status;
+    if (status) where.status = status as OrderStatus;
     if (search) {
       where.OR = [
         { orderNumber: { contains: search, mode: "insensitive" } },
@@ -268,9 +413,9 @@ export class OrdersService {
           paymentStatus: true,
           customerName: true,
           totalAmount: true,
+          hasCustomization: true,
           cancelledAt: true,
           createdAt: true,
-          // itens resumidos
           items: {
             select: {
               id: true,
@@ -298,7 +443,7 @@ export class OrdersService {
       select: SAFE_ORDER_SELECT,
     });
 
-    if (!order) throw new NotFoundException("Pedido não encontrado");
+    if (!order) throw new NotFoundException("Pedido nao encontrado");
     return order;
   }
 
@@ -322,19 +467,18 @@ export class OrdersService {
         },
       });
 
-      if (!order) throw new NotFoundException("Pedido não encontrado");
+      if (!order) throw new NotFoundException("Pedido nao encontrado");
 
       if (order.status === OrderStatus.CANCELLED) {
-        throw new BadRequestException("Pedido já está cancelado");
+        throw new BadRequestException("Pedido ja esta cancelado");
       }
 
       if (!CANCELLABLE_STATUSES.includes(order.status)) {
         throw new BadRequestException(
-          `Pedido com status '${order.status}' não pode ser cancelado pelo lojista`
+          `Pedido com status '${order.status}' nao pode ser cancelado pelo lojista`
         );
       }
 
-      // Liberar estoque reservado de cada item
       for (const item of order.items) {
         await this.inventory.releaseReservationInTransaction(
           item.productVariantId,
@@ -344,7 +488,6 @@ export class OrdersService {
         );
       }
 
-      // Atualizar status do pedido
       const updated = await tx.order.update({
         where: { id: orderId },
         data: {
@@ -354,13 +497,12 @@ export class OrdersService {
         select: SAFE_ORDER_SELECT,
       });
 
-      // Registrar histórico de status
       await tx.orderStatusHistory.create({
         data: {
           orderId,
           fromStatus: order.status,
           toStatus: OrderStatus.CANCELLED,
-          status: OrderStatus.CANCELLED, // campo legado
+          status: OrderStatus.CANCELLED,
           reason: dto.reason ?? "Cancelado pelo lojista",
           createdByUserId: userId,
         },
@@ -377,7 +519,7 @@ export class OrdersService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = {};
-    if (status) where.status = status;
+    if (status) where.status = status as OrderStatus;
     if (tenantId) where.tenantId = tenantId;
     if (search) {
       where.OR = [
@@ -399,6 +541,7 @@ export class OrdersService {
           paymentStatus: true,
           customerName: true,
           totalAmount: true,
+          hasCustomization: true,
           tenantId: true,
           cancelledAt: true,
           createdAt: true,
@@ -420,9 +563,10 @@ export class OrdersService {
         items: true,
         statusHistory: { orderBy: { createdAt: "desc" } },
         tenant: { select: { id: true, name: true, slug: true } },
+        brand: { select: { id: true, name: true, slug: true } },
       },
     });
-    if (!order) throw new NotFoundException("Pedido não encontrado");
+    if (!order) throw new NotFoundException("Pedido nao encontrado");
     return order;
   }
 }

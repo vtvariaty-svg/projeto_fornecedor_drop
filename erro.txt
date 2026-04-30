@@ -1,135 +1,18 @@
-PROMPT PARA CLAUDE CODE SONNET
-
-Título:
-Corrigir autenticação, validação de tenant, concorrência de estoque e documentação antes de implementar pedidos
-
-Contexto:
-A plataforma B2B multi-tenant de dropshipping, white label e private label já possui monorepo, NestJS, Next.js static export, Prisma, Neon PostgreSQL, Render single-service, autenticação, catálogo e estoque inicial.
-
-Foi feita auditoria do repositório e foram identificados problemas que devem ser corrigidos antes da implementação de pedido manual com reserva transacional de estoque.
-
-Objetivo:
-Corrigir falhas críticas na autenticação, validação multi-tenant, RBAC base, concorrência de estoque e documentação, mantendo o escopo fechado e sem implementar pedidos nesta tarefa.
-
-Antes de modificar:
-
-Inspecione a estrutura atual do repositório.
-Verifique AuthService, JwtStrategy, RolesGuard, CurrentTenant, TenantsService, CatalogController e InventoryService.
-Verifique o schema Prisma antes de alterar.
-Não reescreva partes não relacionadas.
-Não implemente pedidos nesta tarefa.
-Preserve o deploy single-service no Render.
-Não adicione segredos reais.
-Mantenha TypeScript estrito.
-Documente decisões relevantes.
-
-Escopo incluído:
-
-Corrigir fluxo de refresh token.
-Criar validação real de tenant ativo por request.
-Criar guard reutilizável para contexto de tenant.
-Preparar RBAC por tenant sem overengineering.
-Aplicar validação de tenant no catálogo de lojista.
-Corrigir reserva/liberação/confirmação de estoque para reduzir risco de corrida concorrente.
-Adicionar testes unitários ou integrados para auth, tenant e estoque.
-Corrigir mensagens com encoding quebrado.
-Atualizar README para refletir o estado real do projeto.
-
-Escopo excluído:
-
-Não implementar pedidos.
-Não implementar pagamento.
-Não implementar fulfillment.
-Não implementar Brand Studio.
-Não implementar white label.
-Não implementar worker.
-Não criar serviço adicional no Render.
-Não alterar arquitetura central sem justificar.
-
-Requisitos técnicos:
-
-Refresh token deve ser tratado como token opaco, não como JWT, se mantida a estratégia atual.
-Refresh token deve continuar salvo apenas como hash SHA-256 no banco.
-Refresh deve validar:
-hash existente;
-token não revogado;
-token não expirado;
-usuário ativo.
-Refresh deve rotacionar token.
-Access token continua sendo JWT.
-Criar TenantContextGuard ou equivalente.
-Guard deve validar X-Tenant-ID.
-Guard deve verificar se o usuário pertence ao tenant por TenantUser.
-Guard deve rejeitar tenant inativo.
-Guard deve anexar tenant validado ao request.
-Criar decorator @CurrentTenant() retornando tenant validado, não apenas header bruto.
-Não depender de Redis.
-Não salvar secrets no código.
-
-Requisitos de estoque:
-
-Ajustar reserveStockInTransaction para evitar overbooking concorrente.
-Preferir operação atômica com updateMany usando condição quantityAvailable >= qty.
-Se a atualização condicional não afetar exatamente um registro, lançar erro de estoque insuficiente.
-Criar movimentação somente após atualização bem-sucedida.
-Revisar releaseReservationInTransaction e commitReservationInTransaction com validações equivalentes.
-Manter todas as operações transacionais compatíveis com uso futuro pelo módulo de pedidos.
-
-Backend:
-
-Arquivos prováveis:
-
-apps/api/src/modules/auth/auth.service.ts
-apps/api/src/modules/auth/strategies/jwt.strategy.ts
-apps/api/src/modules/auth/guards/roles.guard.ts
-apps/api/src/modules/auth/guards/tenant-context.guard.ts
-apps/api/src/modules/auth/guards/tenant-roles.guard.ts, se necessário
-apps/api/src/modules/auth/decorators/current-tenant.decorator.ts
-apps/api/src/common/types/authenticated-user.type.ts
-apps/api/src/modules/tenants/tenants.service.ts
-apps/api/src/modules/catalog/catalog.controller.ts
-apps/api/src/modules/inventory/inventory.service.ts
-
-Critérios de aceitação:
-
-/api/auth/refresh funciona com o refresh token retornado pelo login.
-Refresh token antigo é revogado após rotação.
-Refresh token revogado não pode ser reutilizado.
-Refresh token expirado é rejeitado.
-Usuário inativo não consegue renovar token.
-Rotas tenant-scoped rejeitam ausência de X-Tenant-ID.
-Rotas tenant-scoped rejeitam tenant que não pertence ao usuário.
-Rotas tenant-scoped rejeitam tenant inativo.
-Catálogo de lojista usa validação real de tenant.
-reserveStockInTransaction não permite overbooking em concorrência básica.
-Operações de estoque continuam criando InventoryMovement.
-Testes cobrem refresh token, tenant guard e reserva de estoque.
-README reflete que auth, catálogo e estoque já existem parcialmente.
-Nenhum segredo é commitado.
-Deploy single-service permanece preservado.
-
-Comandos de validação:
-
-pnpm install
-pnpm db:generate
-pnpm db:validate
-pnpm --filter api build
-pnpm --filter api test
-pnpm --filter web build
-pnpm lint
-pnpm test
-
-Resultado esperado:
-
-Ao finalizar, explique:
-
-Arquivos alterados.
-Como o refresh token foi corrigido.
-Como o tenant agora é validado.
-Como o RBAC por tenant ficou preparado.
-Como o estoque foi protegido contra concorrência.
-Quais testes foram criados.
-Como testar login, refresh e tenant inválido manualmente.
-Como testar reserva de estoque.
-Pendências restantes.
-Se o projeto está pronto para o prompt de pedido manual.
+> api@0.0.1 build /opt/render/project/src/apps/api
+> nest build
+src/modules/orders/admin-orders.controller.ts:2:26 - error TS2307: Cannot find module '@drop/database' or its corresponding type declarations.
+2 import { UserRole } from "@drop/database";
+                           ~~~~~~~~~~~~~~~~
+src/modules/orders/dto/list-orders-query.dto.ts:3:29 - error TS2307: Cannot find module '@drop/database' or its corresponding type declarations.
+3 import { OrderStatus } from "@drop/database";
+                              ~~~~~~~~~~~~~~~~
+src/modules/orders/orders.service.ts:7:52 - error TS2307: Cannot find module '@drop/database' or its corresponding type declarations.
+7 import { OrderStatus, PaymentStatus, Prisma } from "@drop/database";
+                                                     ~~~~~~~~~~~~~~~~
+Found 3 error(s).
+/opt/render/project/src/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  api@0.0.1 build: `nest build`
+Menu
+Exit status 1
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
