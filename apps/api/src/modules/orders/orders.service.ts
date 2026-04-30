@@ -4,7 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from "@nestjs/common";
-import { OrderStatus, PaymentStatus, Prisma } from "@drop/database";
+import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { CreateManualOrderDto } from "./dto/create-manual-order.dto";
