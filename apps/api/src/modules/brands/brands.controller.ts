@@ -81,4 +81,9 @@ export class BrandsController {
   ) {
     return this.brands.removeAsset(tenant.id, id, assetId);
   }
+
+  @Get(":id/readiness")
+  readiness(@Param("id") id: string, @CurrentTenant() tenant: TenantContext) {
+    return this.brands.brandReadiness(tenant.id, id);
+  }
 }

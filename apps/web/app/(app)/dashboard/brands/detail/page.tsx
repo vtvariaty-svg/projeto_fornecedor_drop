@@ -6,6 +6,7 @@ import {
   brandsService,
   BrandData,
   BrandAssetData,
+  BrandReadiness,
   UpdateBrandPayload,
   CreateBrandAssetPayload,
   AssetType,
@@ -32,6 +33,7 @@ function BrandDetailContent() {
 
   const [tenantId, setTenantId] = useState("");
   const [brand, setBrand] = useState<BrandData | null>(null);
+  const [readiness, setReadiness] = useState<BrandReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,8 +61,12 @@ function BrandDetailContent() {
     setLoading(true);
     setError(null);
     try {
-      const data = await brandsService.get(tenantId, brandId);
+      const [data, rdns] = await Promise.all([
+        brandsService.get(tenantId, brandId),
+        brandsService.readiness(tenantId, brandId).catch(() => null),
+      ]);
       setBrand(data);
+      setReadiness(rdns);
       setEditForm({
         name: data.name,
         description: data.description ?? "",
@@ -150,6 +156,36 @@ function BrandDetailContent() {
   const isArchived = brand.status === "ARCHIVED";
   const assets: BrandAssetData[] = brand.assets ?? [];
 
+  const statusLabel: Record<string, string> = {
+    DRAFT: "Aguardando revisao",
+    ACTIVE: "Aprovada",
+    INACTIVE: "Rejeitada",
+    ARCHIVED: "Arquivada",
+  };
+  const statusBg: Record<string, string> = {
+    DRAFT: "#fef9c3",
+    ACTIVE: "#dcfce7",
+    INACTIVE: "#fee2e2",
+    ARCHIVED: "#f3f4f6",
+  };
+  const statusColor: Record<string, string> = {
+    DRAFT: "#854d0e",
+    ACTIVE: "#166534",
+    INACTIVE: "#991b1b",
+    ARCHIVED: "#6b7280",
+  };
+
+  function assetStatusLabel(asset: BrandAssetData) {
+    if (asset.isApproved) return "Aprovado";
+    if (asset.rejectedReason) return "Rejeitado";
+    return "Pendente";
+  }
+  function assetStatusColor(asset: BrandAssetData) {
+    if (asset.isApproved) return { bg: "#dcfce7", color: "#166534" };
+    if (asset.rejectedReason) return { bg: "#fee2e2", color: "#991b1b" };
+    return { bg: "#fef9c3", color: "#854d0e" };
+  }
+
   return (
     <div style={s.container}>
       <button onClick={() => router.push("/dashboard/brands")} style={s.backBtn}>
@@ -162,10 +198,10 @@ function BrandDetailContent() {
           <code style={s.slug}>/{brand.slug}</code>
           <span style={{
             ...s.badge,
-            background: brand.status === "ACTIVE" ? "#dcfce7" : brand.status === "ARCHIVED" ? "#fee2e2" : "#fef9c3",
-            color: brand.status === "ACTIVE" ? "#166534" : brand.status === "ARCHIVED" ? "#991b1b" : "#854d0e",
+            background: statusBg[brand.status] ?? "#fef9c3",
+            color: statusColor[brand.status] ?? "#854d0e",
           }}>
-            {brand.status}
+            {statusLabel[brand.status] ?? brand.status}
           </span>
         </div>
         {!isArchived && (
@@ -179,6 +215,41 @@ function BrandDetailContent() {
           </div>
         )}
       </div>
+
+      {/* Painel de readiness */}
+      {readiness && (
+        <div style={{
+          ...s.card,
+          background: readiness.isReadyForWhiteLabel ? "#f0fdf4" : "#fffbeb",
+          border: `1px solid ${readiness.isReadyForWhiteLabel ? "#86efac" : "#fde68a"}`,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
+            <div>
+              <p style={{ margin: "0 0 0.25rem", fontWeight: 700, color: readiness.isReadyForWhiteLabel ? "#166534" : "#92400e" }}>
+                {readiness.isReadyForWhiteLabel
+                  ? "Marca pronta para white label"
+                  : brand.status === "INACTIVE"
+                    ? "Marca rejeitada — revise e reenvie"
+                    : "Aguardando aprovacao admin"}
+              </p>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#6b7280" }}>
+                {readiness.approvedAssets}/{readiness.totalAssets} assets aprovados
+                {readiness.hasApprovedLogo ? " · Logo aprovado" : " · Sem logo aprovado"}
+              </p>
+            </div>
+            {brand.status === "INACTIVE" && brand.rejectedReason && (
+              <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 6, padding: "0.5rem 0.75rem", maxWidth: 320 }}>
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "#991b1b" }}>
+                  <strong>Motivo:</strong> {brand.rejectedReason}
+                </p>
+              </div>
+            )}
+          </div>
+          <p style={{ margin: "0.75rem 0 0", fontSize: "0.8rem", color: "#6b7280" }}>
+            Produtos do catalogo podem ser vendidos sem marca aprovada (dropshipping padrao).
+          </p>
+        </div>
+      )}
 
       {editing && (
         <div style={s.card}>
@@ -241,16 +312,29 @@ function BrandDetailContent() {
         {assets.length === 0 && <p style={{ color: "#9ca3af", marginBottom: "1rem" }}>Nenhum asset cadastrado.</p>}
         {assets.length > 0 && (
           <div style={s.assetList}>
-            {assets.map((asset) => (
-              <div key={asset.id} style={s.assetItem}>
-                <div style={s.assetInfo}>
-                  <span style={s.assetType}>{ASSET_TYPE_LABEL[asset.type]}</span>
-                  <a href={asset.url} target="_blank" rel="noopener noreferrer" style={s.assetUrl}>{asset.filename}</a>
-                  {asset.altText && <span style={s.assetAlt}>{asset.altText}</span>}
+            {assets.map((asset) => {
+              const { bg, color } = assetStatusColor(asset);
+              return (
+                <div key={asset.id} style={s.assetItem}>
+                  <div style={s.assetInfo}>
+                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.2rem" }}>
+                      <span style={s.assetType}>{ASSET_TYPE_LABEL[asset.type]}</span>
+                      <span style={{ display: "inline-block", background: bg, color, fontSize: "0.68rem", padding: "0.1rem 0.4rem", borderRadius: 10, fontWeight: 600 }}>
+                        {assetStatusLabel(asset)}
+                      </span>
+                    </div>
+                    <a href={asset.url} target="_blank" rel="noopener noreferrer" style={s.assetUrl}>{asset.filename}</a>
+                    {asset.altText && <span style={s.assetAlt}>{asset.altText}</span>}
+                    {asset.rejectedReason && (
+                      <span style={{ display: "block", fontSize: "0.78rem", color: "#991b1b", marginTop: "0.15rem" }}>
+                        Motivo: {asset.rejectedReason}
+                      </span>
+                    )}
+                  </div>
+                  <button onClick={() => handleRemoveAsset(asset.id)} style={s.removeBtn}>Remover</button>
                 </div>
-                <button onClick={() => handleRemoveAsset(asset.id)} style={s.removeBtn}>Remover</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

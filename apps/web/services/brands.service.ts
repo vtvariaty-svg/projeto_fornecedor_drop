@@ -17,10 +17,25 @@ export interface BrandData {
   toneOfVoice?: string;
   brandStory?: string;
   guidelines?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectedReason?: string;
   tenantId: string;
   createdAt: string;
   updatedAt: string;
   assets?: BrandAssetData[];
+}
+
+export interface BrandReadiness {
+  brandId: string;
+  status: BrandStatus;
+  isReadyForWhiteLabel: boolean;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectedReason?: string;
+  totalAssets: number;
+  approvedAssets: number;
+  hasApprovedLogo: boolean;
 }
 
 export interface BrandAssetData {
@@ -33,6 +48,9 @@ export interface BrandAssetData {
   altText?: string;
   sortOrder: number;
   isApproved: boolean;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectedReason?: string;
   notes?: string;
   brandId: string;
   createdAt: string;
@@ -139,5 +157,9 @@ export const brandsService = {
 
   async removeAsset(tenantId: string, brandId: string, assetId: string): Promise<{ ok: boolean }> {
     return authedRequest<{ ok: boolean }>(`/brands/${brandId}/assets/${assetId}`, { method: "DELETE" }, tenantId);
+  },
+
+  async readiness(tenantId: string, brandId: string): Promise<BrandReadiness> {
+    return authedRequest<BrandReadiness>(`/brands/${brandId}/readiness`, {}, tenantId);
   },
 };

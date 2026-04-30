@@ -132,7 +132,7 @@ describe("CatalogService", () => {
 
   describe("publicList", () => {
     it("lista apenas produtos ativos", async () => {
-      const activeProducts = [{ ...mockProduct, status: ProductStatus.ACTIVE }];
+      const activeProducts = [{ ...mockProduct, status: ProductStatus.ACTIVE, variants: [], media: [], customizationOptions: [] }];
       mockPrisma.product.findMany.mockResolvedValue(activeProducts);
       mockPrisma.product.count.mockResolvedValue(1);
 
@@ -159,6 +159,7 @@ describe("CatalogService", () => {
         updatedAt: mockProduct.updatedAt,
         variants: [],
         media: [],
+        customizationOptions: [],
       };
       mockPrisma.product.findMany.mockResolvedValue([publicProduct]);
       mockPrisma.product.count.mockResolvedValue(1);
@@ -186,6 +187,7 @@ describe("CatalogService", () => {
         ...mockProduct,
         variants: [{ ...mockVariant, status: ProductStatus.ACTIVE }],
         media: [],
+        customizationOptions: [],
       });
 
       const result = await service.publicGetBySlug("bolsa-tote-premium");

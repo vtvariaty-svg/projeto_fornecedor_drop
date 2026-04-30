@@ -2,10 +2,10 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authStorage } from "../../../../services/auth.service";
 import {
   catalogService,
   ProductData,
+  ProductCustomizationOptionData,
   CatalogListResponse,
 } from "../../../../services/catalog.service";
 
@@ -35,14 +35,20 @@ function ProductDetail({
   onBack: () => void;
 }) {
   const [product, setProduct] = useState<ProductData | null>(null);
+  const [customizations, setCustomizations] = useState<ProductCustomizationOptionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    catalogService
-      .getBySlug(slug, tenantId)
-      .then(setProduct)
-      .catch((e) => setError(e.message))
+    Promise.all([
+      catalogService.getBySlug(slug, tenantId),
+      catalogService.getCustomizationOptions(slug, tenantId).catch(() => []),
+    ])
+      .then(([prod, opts]) => {
+        setProduct(prod);
+        setCustomizations(opts);
+      })
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [slug, tenantId]);
 
@@ -58,6 +64,10 @@ function ProductDetail({
       <button onClick={onBack} style={s.backBtn}>
         ← Voltar ao catálogo
       </button>
+
+      <div style={s.dropshippingNotice}>
+        Produtos do catálogo podem ser vendidos via dropshipping sem marca própria.
+      </div>
 
       <div style={s.card}>
         {product.media.length > 0 && (
@@ -84,7 +94,7 @@ function ProductDetail({
 
         <div style={{ marginBottom: "1rem" }}>
           {availableVariants.length > 0 ? (
-            <span style={s.badgeAvailable}>✓ {availableVariants.length} variante{availableVariants.length !== 1 ? "s" : ""} disponível{availableVariants.length !== 1 ? "" : ""}</span>
+            <span style={s.badgeAvailable}>✓ {availableVariants.length} variante{availableVariants.length !== 1 ? "s" : ""} disponível{availableVariants.length !== 1 ? "is" : ""}</span>
           ) : (
             <span style={s.badgeUnavailable}>Sem estoque disponível</span>
           )}
@@ -110,6 +120,38 @@ function ProductDetail({
                 <p style={s.variantPrice}>{formatPrice(Number(v.salePrice))}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {customizations.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <h3 style={s.variantTitle}>Opções de personalização disponíveis</h3>
+            <p style={{ color: "#6b7280", fontSize: "0.85rem", marginBottom: "0.75rem" }}>
+              Disponível para marcas aprovadas (white label opcional).
+            </p>
+            <div style={s.variantGrid}>
+              {customizations.map((link) => (
+                <div key={link.id} style={s.variantCard}>
+                  <p style={{ margin: "0 0 0.25rem", fontWeight: 600, fontSize: "0.9rem" }}>
+                    {link.customizationOption.name}
+                  </p>
+                  {link.customizationOption.type && (
+                    <span style={s.badge}>{link.customizationOption.type}</span>
+                  )}
+                  {link.customizationOption.description && (
+                    <p style={{ ...s.variantAttr, marginTop: "0.3rem" }}>{link.customizationOption.description}</p>
+                  )}
+                  {link.additionalPrice != null && Number(link.additionalPrice) > 0 && (
+                    <p style={{ ...s.variantPrice, marginTop: "0.4rem" }}>
+                      + {formatPrice(Number(link.additionalPrice))}
+                    </p>
+                  )}
+                  {link.isRequired && (
+                    <span style={{ ...s.badge, background: "#fef3c7", color: "#92400e" }}>Obrigatória</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -141,7 +183,7 @@ function CatalogInner() {
     catalogService
       .list(tenantId, { search: search || undefined })
       .then(setCatalog)
-      .catch((e) => setError(e.message))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [tenantId, search]);
 
@@ -166,6 +208,10 @@ function CatalogInner() {
         </button>
       </header>
 
+      <div style={s.dropshippingNotice}>
+        Todos os produtos podem ser vendidos via dropshipping sem marca própria. Brand Studio é opcional.
+      </div>
+
       <input
         type="search"
         placeholder="Buscar produto..."
@@ -183,6 +229,7 @@ function CatalogInner() {
       <div style={s.grid}>
         {catalog?.items.map((p) => {
           const availableCount = p.variants.filter((v) => v.isAvailable).length;
+          const hasCustomization = (p as ProductData & { hasCustomization?: boolean }).hasCustomization;
           return (
             <div
               key={p.id}
@@ -199,7 +246,12 @@ function CatalogInner() {
                 <div style={s.cardImagePlaceholder}>Sem imagem</div>
               )}
               <div style={s.cardBody}>
-                {p.category && <span style={s.badge}>{p.category}</span>}
+                <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                  {p.category && <span style={s.badge}>{p.category}</span>}
+                  {hasCustomization && (
+                    <span style={s.badgeCustomization}>Personalização</span>
+                  )}
+                </div>
                 <p style={s.cardName}>{p.name}</p>
                 <p style={s.cardPrice}>{formatPrice(Number(p.basePrice))}</p>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
@@ -207,7 +259,7 @@ function CatalogInner() {
                     {p.variants.length} variante{p.variants.length !== 1 ? "s" : ""}
                   </span>
                   {availableCount > 0 ? (
-                    <span style={s.badgeAvailableSm}>✓ {availableCount} disponível{availableCount !== 1 ? "" : ""}</span>
+                    <span style={s.badgeAvailableSm}>✓ {availableCount} disp.</span>
                   ) : (
                     <span style={s.badgeUnavailableSm}>Sem estoque</span>
                   )}
@@ -246,9 +298,10 @@ export default function CatalogPage() {
 const s: Record<string, React.CSSProperties> = {
   main: { minHeight: "100vh", background: "#f5f5f5", fontFamily: "system-ui, sans-serif" },
   container: { maxWidth: "960px", margin: "0 auto", padding: "2rem 1rem" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" },
   title: { margin: 0, fontSize: "1.5rem" },
   backBtn: { padding: "0.5rem 1rem", background: "transparent", border: "1px solid #ccc", borderRadius: "4px", cursor: "pointer", fontSize: "0.875rem" },
+  dropshippingNotice: { background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "6px", padding: "0.6rem 1rem", marginBottom: "1.25rem", color: "#1e40af", fontSize: "0.875rem" },
   searchInput: { width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #ddd", borderRadius: "6px", fontSize: "1rem", marginBottom: "1.5rem", boxSizing: "border-box" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "1rem" },
   productCard: { background: "#fff", borderRadius: "8px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", cursor: "pointer", transition: "box-shadow 0.15s" },
@@ -258,7 +311,8 @@ const s: Record<string, React.CSSProperties> = {
   cardName: { margin: "0.25rem 0 0.25rem", fontWeight: 600, fontSize: "0.95rem" },
   cardPrice: { margin: "0 0 0.25rem", color: "#111", fontWeight: 700 },
   cardVariants: { margin: 0, color: "#888", fontSize: "0.75rem" },
-  badge: { display: "inline-block", background: "#f0f0f0", color: "#555", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px", marginBottom: "0.35rem" },
+  badge: { display: "inline-block", background: "#f0f0f0", color: "#555", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px" },
+  badgeCustomization: { display: "inline-block", background: "#ede9fe", color: "#5b21b6", fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "12px", fontWeight: 600 },
   badgeAvailable: { display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px", fontWeight: 600 },
   badgeUnavailable: { display: "inline-block", background: "#f3f4f6", color: "#6b7280", fontSize: "0.75rem", padding: "0.15rem 0.5rem", borderRadius: "12px" },
   badgeAvailableSm: { display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: "0.7rem", padding: "0.1rem 0.4rem", borderRadius: "10px", fontWeight: 600 },

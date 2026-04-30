@@ -38,6 +38,24 @@ export interface ProductData {
   media: ProductMediaData[];
 }
 
+export interface CustomizationOptionData {
+  id: string;
+  name: string;
+  description?: string;
+  type?: string;
+  isActive: boolean;
+  requiresApproval: boolean;
+  additionalPrice?: number;
+}
+
+export interface ProductCustomizationOptionData {
+  id: string;
+  isRequired: boolean;
+  additionalPrice?: number;
+  sortOrder: number;
+  customizationOption: CustomizationOptionData;
+}
+
 export interface CatalogListResponse {
   items: ProductData[];
   total: number;
@@ -84,5 +102,9 @@ export const catalogService = {
 
   async getBySlug(slug: string, tenantId: string): Promise<ProductData> {
     return catalogGet<ProductData>(`/catalog/products/${slug}`, tenantId);
+  },
+
+  async getCustomizationOptions(slug: string, tenantId: string): Promise<ProductCustomizationOptionData[]> {
+    return catalogGet<ProductCustomizationOptionData[]>(`/catalog/products/${slug}/customization-options`, tenantId);
   },
 };

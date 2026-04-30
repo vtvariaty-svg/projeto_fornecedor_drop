@@ -10,6 +10,8 @@ import { CreateBrandDto } from "./dto/create-brand.dto";
 import { UpdateBrandDto } from "./dto/update-brand.dto";
 import { CreateBrandAssetDto } from "./dto/create-brand-asset.dto";
 import { ListBrandsQueryDto } from "./dto/list-brands-query.dto";
+import { RejectBrandDto } from "./dto/review-brand.dto";
+import { RejectBrandAssetDto } from "./dto/review-brand-asset.dto";
 
 const BRAND_SELECT = {
   id: true,
@@ -24,7 +26,9 @@ const BRAND_SELECT = {
   brandStory: true,
   guidelines: true,
   approvedAt: true,
+  rejectedAt: true,
   rejectedReason: true,
+  reviewedByUserId: true,
   tenantId: true,
   createdAt: true,
   updatedAt: true,
@@ -40,6 +44,10 @@ const ASSET_SELECT = {
   altText: true,
   sortOrder: true,
   isApproved: true,
+  approvedAt: true,
+  rejectedAt: true,
+  rejectedReason: true,
+  reviewedByUserId: true,
   notes: true,
   brandId: true,
   createdAt: true,
@@ -159,6 +167,36 @@ export class BrandsService {
     });
   }
 
+  // --- readiness ---
+
+  async brandReadiness(tenantId: string, id: string) {
+    const brand = await this.prisma.brand.findUnique({
+      where: { id },
+      select: {
+        ...BRAND_SELECT,
+        assets: { select: { id: true, isApproved: true, type: true } },
+      },
+    });
+    if (!brand) throw new NotFoundException("Marca nao encontrada");
+    if (brand.tenantId !== tenantId) throw new ForbiddenException("Acesso negado a esta marca");
+
+    const totalAssets = brand.assets.length;
+    const approvedAssets = brand.assets.filter((a) => a.isApproved).length;
+    const hasLogo = brand.assets.some((a) => a.type === "LOGO" && a.isApproved);
+
+    return {
+      brandId: brand.id,
+      status: brand.status,
+      isReadyForWhiteLabel: brand.status === BrandStatus.ACTIVE,
+      approvedAt: brand.approvedAt,
+      rejectedAt: brand.rejectedAt,
+      rejectedReason: brand.rejectedReason,
+      totalAssets,
+      approvedAssets,
+      hasApprovedLogo: hasLogo,
+    };
+  }
+
   // --- assets ---
 
   async addAsset(tenantId: string, brandId: string, dto: CreateBrandAssetDto) {
@@ -174,7 +212,7 @@ export class BrandsService {
         storageKey: dto.storageKey,
         altText: dto.altText,
         sortOrder: dto.sortOrder ?? 0,
-        isApproved: dto.isApproved ?? false,
+        isApproved: false,
         notes: dto.notes,
       },
       select: ASSET_SELECT,
@@ -205,7 +243,98 @@ export class BrandsService {
     return { ok: true };
   }
 
-  // --- admin ---
+  // --- admin: brand review ---
+
+  async approveBrand(id: string, reviewedByUserId?: string) {
+    const brand = await this.prisma.brand.findUnique({ where: { id }, select: { id: true } });
+    if (!brand) throw new NotFoundException("Marca nao encontrada");
+
+    return this.prisma.brand.update({
+      where: { id },
+      data: {
+        status: BrandStatus.ACTIVE,
+        approvedAt: new Date(),
+        rejectedAt: null,
+        rejectedReason: null,
+        reviewedByUserId: reviewedByUserId ?? null,
+      },
+      select: BRAND_SELECT,
+    });
+  }
+
+  async rejectBrand(id: string, dto: RejectBrandDto, reviewedByUserId?: string) {
+    const brand = await this.prisma.brand.findUnique({ where: { id }, select: { id: true } });
+    if (!brand) throw new NotFoundException("Marca nao encontrada");
+
+    return this.prisma.brand.update({
+      where: { id },
+      data: {
+        status: BrandStatus.INACTIVE,
+        approvedAt: null,
+        rejectedAt: new Date(),
+        rejectedReason: dto.reason,
+        reviewedByUserId: reviewedByUserId ?? null,
+      },
+      select: BRAND_SELECT,
+    });
+  }
+
+  // --- admin: asset review ---
+
+  async approveAsset(brandId: string, assetId: string, reviewedByUserId?: string) {
+    const brand = await this.prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } });
+    if (!brand) throw new NotFoundException("Marca nao encontrada");
+
+    const asset = await this.prisma.brandAsset.findUnique({
+      where: { id: assetId },
+      select: { id: true, brandId: true },
+    });
+    if (!asset) throw new NotFoundException("Asset nao encontrado");
+    if (asset.brandId !== brandId) throw new ForbiddenException("Asset nao pertence a esta marca");
+
+    return this.prisma.brandAsset.update({
+      where: { id: assetId },
+      data: {
+        isApproved: true,
+        approvedAt: new Date(),
+        rejectedAt: null,
+        rejectedReason: null,
+        reviewedByUserId: reviewedByUserId ?? null,
+      },
+      select: ASSET_SELECT,
+    });
+  }
+
+  async rejectAsset(
+    brandId: string,
+    assetId: string,
+    dto: RejectBrandAssetDto,
+    reviewedByUserId?: string
+  ) {
+    const brand = await this.prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } });
+    if (!brand) throw new NotFoundException("Marca nao encontrada");
+
+    const asset = await this.prisma.brandAsset.findUnique({
+      where: { id: assetId },
+      select: { id: true, brandId: true },
+    });
+    if (!asset) throw new NotFoundException("Asset nao encontrado");
+    if (asset.brandId !== brandId) throw new ForbiddenException("Asset nao pertence a esta marca");
+
+    return this.prisma.brandAsset.update({
+      where: { id: assetId },
+      data: {
+        isApproved: false,
+        approvedAt: null,
+        rejectedAt: new Date(),
+        rejectedReason: dto.reason,
+        reviewedByUserId: reviewedByUserId ?? null,
+      },
+      select: ASSET_SELECT,
+    });
+  }
+
+  // --- admin: list/get ---
 
   async adminList(query: ListBrandsQueryDto) {
     const { page = 1, limit = 20, search, status, tenantId } = query;

@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   NotFoundException,
   ConflictException,
@@ -12,6 +12,8 @@ import { CreateProductVariantDto } from "./dto/create-product-variant.dto";
 import { UpdateProductVariantDto } from "./dto/update-product-variant.dto";
 import { CreateProductMediaDto } from "./dto/create-product-media.dto";
 import { ListProductsQueryDto } from "./dto/list-products-query.dto";
+
+const ASC = "asc" as const;
 
 // Fields visible to lojistas (never expose costPrice or internal quantities)
 const PUBLIC_PRODUCT_SELECT = {
@@ -32,7 +34,7 @@ const PUBLIC_PRODUCT_SELECT = {
       sortOrder: true,
       variantId: true,
     },
-    orderBy: { sortOrder: "asc" as const },
+    orderBy: { sortOrder: ASC },
   },
   variants: {
     where: { status: ProductStatus.ACTIVE },
@@ -47,28 +49,37 @@ const PUBLIC_PRODUCT_SELECT = {
       salePrice: true,
       weightGrams: true,
       status: true,
-      // Lido internamente para calcular isAvailable â€” nunca exposto diretamente
+      // read internally to compute isAvailable — never exposed directly
       inventoryItem: {
         select: { quantityAvailable: true },
       },
     },
   },
+  // Only 1 record to know if active customization exists
+  customizationOptions: {
+    where: { customizationOption: { isActive: true } },
+    select: { id: true },
+    take: 1,
+  },
 } satisfies Prisma.ProductSelect;
 
-/** Formata um produto pÃºblico removendo campos internos e adicionando isAvailable */
+/** Format public product: remove internal fields, add isAvailable and hasCustomization */
 function formatPublicProduct<
   T extends {
     variants: Array<{
       inventoryItem: { quantityAvailable: number } | null;
       [key: string]: unknown;
     }>;
+    customizationOptions: Array<{ id: string }>;
     [key: string]: unknown;
   },
 >(product: T) {
+  const { customizationOptions, ...rest } = product;
   return {
-    ...product,
-    variants: product.variants.map(({ inventoryItem, ...rest }) => ({
-      ...rest,
+    ...rest,
+    hasCustomization: customizationOptions.length > 0,
+    variants: product.variants.map(({ inventoryItem, ...variantRest }) => ({
+      ...variantRest,
       isAvailable: (inventoryItem?.quantityAvailable ?? 0) > 0,
     })),
   };
@@ -78,7 +89,7 @@ function formatPublicProduct<
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // â”€â”€â”€ Admin: Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Admin: Products ---
 
   async adminCreate(dto: CreateProductDto) {
     await this.assertSlugAvailable(dto.slug);
@@ -121,7 +132,7 @@ export class CatalogService {
         orderBy: { createdAt: "desc" },
         include: {
           variants: { select: { id: true, sku: true, name: true, status: true, salePrice: true } },
-          media: { select: { id: true, url: true, altText: true, sortOrder: true }, orderBy: { sortOrder: "asc" } },
+          media: { select: { id: true, url: true, altText: true, sortOrder: true }, orderBy: { sortOrder: ASC } },
         },
       }),
       this.prisma.product.count({ where }),
@@ -135,10 +146,10 @@ export class CatalogService {
       where: { id },
       include: {
         variants: { orderBy: { createdAt: "asc" } },
-        media: { orderBy: { sortOrder: "asc" } },
+        media: { orderBy: { sortOrder: ASC } },
       },
     });
-    if (!product) throw new NotFoundException("Produto nÃ£o encontrado");
+    if (!product) throw new NotFoundException("Produto nao encontrado");
     return product;
   }
 
@@ -167,7 +178,7 @@ export class CatalogService {
     });
   }
 
-  // â”€â”€â”€ Admin: Variants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Admin: Variants ---
 
   async adminCreateVariant(productId: string, dto: CreateProductVariantDto) {
     await this.assertProductExists(productId);
@@ -213,7 +224,7 @@ export class CatalogService {
     });
   }
 
-  // â”€â”€â”€ Admin: Media â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Admin: Media ---
 
   async adminAddMedia(productId: string, dto: CreateProductMediaDto) {
     await this.assertProductExists(productId);
@@ -236,12 +247,12 @@ export class CatalogService {
     const media = await this.prisma.productMedia.findFirst({
       where: { id: mediaId, productId },
     });
-    if (!media) throw new NotFoundException("MÃ­dia nÃ£o encontrada");
+    if (!media) throw new NotFoundException("Midia nao encontrada");
     await this.prisma.productMedia.delete({ where: { id: mediaId } });
     return { ok: true };
   }
 
-  // â”€â”€â”€ Lojista: Catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Lojista: Catalog ---
 
   async publicList(query: ListProductsQueryDto) {
     const { page = 1, limit = 20, search, category, sku } = query;
@@ -286,29 +297,29 @@ export class CatalogService {
       select: PUBLIC_PRODUCT_SELECT,
     });
     if (!product || product.status !== ProductStatus.ACTIVE) {
-      throw new NotFoundException("Produto nÃ£o encontrado");
+      throw new NotFoundException("Produto nao encontrado");
     }
     return formatPublicProduct(product);
   }
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- Helpers ---
 
   private async assertProductExists(id: string) {
     const exists = await this.prisma.product.findUnique({ where: { id }, select: { id: true } });
-    if (!exists) throw new NotFoundException("Produto nÃ£o encontrado");
+    if (!exists) throw new NotFoundException("Produto nao encontrado");
   }
 
   private async assertSlugAvailable(slug: string, excludeId?: string) {
     const existing = await this.prisma.product.findUnique({ where: { slug }, select: { id: true } });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(`Slug '${slug}' jÃ¡ estÃ¡ em uso`);
+      throw new ConflictException(`Slug '${slug}' ja esta em uso`);
     }
   }
 
   private async assertSkuAvailable(sku: string, excludeId?: string) {
     const existing = await this.prisma.productVariant.findUnique({ where: { sku }, select: { id: true } });
     if (existing && existing.id !== excludeId) {
-      throw new ConflictException(`SKU '${sku}' jÃ¡ estÃ¡ em uso`);
+      throw new ConflictException(`SKU '${sku}' ja esta em uso`);
     }
   }
 
@@ -318,7 +329,7 @@ export class CatalogService {
       select: { id: true },
     });
     if (!variant) {
-      throw new BadRequestException("Variante nÃ£o pertence a este produto");
+      throw new BadRequestException("Variante nao pertence a este produto");
     }
   }
 }
