@@ -1,12 +1,13 @@
 import React from "react";
 import Link from "next/link";
+import { APP_NAME } from "../lib/config";
 
 export default function HomePage() {
   return (
     <div style={s.page}>
       {/* HEADER */}
       <header style={s.header}>
-        <div style={s.logo}>D'OUTRO LADO B2B</div>
+        <div style={s.logo}>{APP_NAME}</div>
         <nav style={s.nav}>
           <Link href="/login" style={s.navLink}>
             Login

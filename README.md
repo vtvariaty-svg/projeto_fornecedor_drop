@@ -1,4 +1,6 @@
-# Plataforma Drop — Fundação Técnica
+# Plataforma B2B — Fundação Técnica
+
+> **Nome provisório:** o nome definitivo da plataforma ainda não foi decidido. "Plataforma B2B" é usado como identificador neutro até a decisão final. Não usar "D'OUTRO LADO B2B".
 
 Monorepo da plataforma B2B de dropshipping, white label e private label para bolsas e acessórios.
 
@@ -280,13 +282,23 @@ O contexto validado é injetado via `@CurrentTenant()`.
 - Ajustes manuais com log de movimentações
 - Reserva / liberação / confirmação atômicas via `updateMany` com WHERE condicional (previne overbooking sob concorrência)
 
+### Orders (`/orders`, `/admin/orders`)
+- `POST /orders/manual` — cria pedido manual com snapshot de preço e reserva atômica de estoque
+- `GET /orders` — lista pedidos do tenant autenticado
+- `GET /orders/:id` — detalhe completo do pedido
+- `POST /orders/:id/cancel` — cancela pedido elegível e libera estoque reservado
+- `GET /admin/orders` — listagem administrativa de todos os tenants
+- `GET /admin/orders/:id` — detalhe administrativo com dados do tenant
+
+Rotas `/orders/*` exigem `JwtAuthGuard + TenantContextGuard`. O tenant validado é injetado via `@CurrentTenant()` — o header bruto nunca é usado como fonte confiável após o guard.
+
 ---
 
 ## Pendências para Próximas Fases
 
-- [ ] Implementar módulo de pedidos (orders)
+- [ ] Estabilizar fluxo de pedidos e preparar fulfillment
 - [ ] Implementar RBAC completo por tenant (roles)
+- [ ] Implementar Brand Studio (white label / private label)
 - [ ] Configurar BullMQ + Redis e ativar worker no Render
 - [ ] Configurar storage S3-compatible para upload de assets
-- [ ] Implementar white label e private label
 - [ ] Avaliar migração para Next.js servidor se SSR for necessário
