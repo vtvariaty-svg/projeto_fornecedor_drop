@@ -55,6 +55,18 @@ export class AdminProductsController {
     return this.catalog.adminArchive(id);
   }
 
+  @Patch(":id/publish")
+  @HttpCode(HttpStatus.OK)
+  publish(@Param("id") id: string): Promise<unknown> {
+    return this.catalog.adminPublish(id);
+  }
+
+  @Patch(":id/unpublish")
+  @HttpCode(HttpStatus.OK)
+  unpublish(@Param("id") id: string): Promise<unknown> {
+    return this.catalog.adminUnpublish(id);
+  }
+
   @Post(":productId/variants")
   createVariant(
     @Param("productId") productId: string,
@@ -70,6 +82,29 @@ export class AdminProductsController {
     @Body() dto: UpdateProductVariantDto
   ): Promise<unknown> {
     return this.catalog.adminUpdateVariant(productId, variantId, dto);
+  }
+
+  @Patch(":productId/variants/:variantId/activate")
+  @HttpCode(HttpStatus.OK)
+  activateVariant(
+    @Param("productId") productId: string,
+    @Param("variantId") variantId: string
+  ): Promise<unknown> {
+    return this.catalog.adminActivateVariant(productId, variantId);
+  }
+
+  @Patch(":productId/variants/:variantId/deactivate")
+  @HttpCode(HttpStatus.OK)
+  deactivateVariant(
+    @Param("productId") productId: string,
+    @Param("variantId") variantId: string
+  ): Promise<unknown> {
+    return this.catalog.adminDeactivateVariant(productId, variantId);
+  }
+
+  @Get(":productId/media")
+  getMedia(@Param("productId") productId: string): Promise<unknown> {
+    return this.catalog.adminGetMedia(productId);
   }
 
   @Post(":productId/media")

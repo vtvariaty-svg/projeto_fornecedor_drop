@@ -178,6 +178,22 @@ export class CatalogService {
     });
   }
 
+  async adminPublish(id: string) {
+    await this.assertProductExists(id);
+    return this.prisma.product.update({
+      where: { id },
+      data: { status: ProductStatus.ACTIVE },
+    });
+  }
+
+  async adminUnpublish(id: string) {
+    await this.assertProductExists(id);
+    return this.prisma.product.update({
+      where: { id },
+      data: { status: ProductStatus.INACTIVE },
+    });
+  }
+
   // --- Admin: Variants ---
 
   async adminCreateVariant(productId: string, dto: CreateProductVariantDto) {
@@ -224,7 +240,31 @@ export class CatalogService {
     });
   }
 
+  async adminActivateVariant(productId: string, variantId: string) {
+    await this.assertVariantBelongsToProduct(productId, variantId);
+    return this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: { status: ProductStatus.ACTIVE },
+    });
+  }
+
+  async adminDeactivateVariant(productId: string, variantId: string) {
+    await this.assertVariantBelongsToProduct(productId, variantId);
+    return this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: { status: ProductStatus.INACTIVE },
+    });
+  }
+
   // --- Admin: Media ---
+
+  async adminGetMedia(productId: string) {
+    await this.assertProductExists(productId);
+    return this.prisma.productMedia.findMany({
+      where: { productId },
+      orderBy: { sortOrder: ASC },
+    });
+  }
 
   async adminAddMedia(productId: string, dto: CreateProductMediaDto) {
     await this.assertProductExists(productId);

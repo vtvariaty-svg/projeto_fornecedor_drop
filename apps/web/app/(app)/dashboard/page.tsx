@@ -253,17 +253,25 @@ export default function DashboardPage() {
             <ModuleSection title="Administração">
               <ModuleCardItem
                 icon="📋"
-                title="Produtos / Admin"
-                desc="Gerencie o catálogo completo de produtos e SKUs."
-                href="/dashboard/catalog"
+                title="Produtos"
+                desc="Gerencie o catálogo completo de produtos, SKUs e mídia."
+                href="/dashboard/admin/products"
+                color="#fef3c7"
+              />
+              <ModuleCardItem
+                icon="📦"
+                title="Estoque"
+                desc="Consulte e ajuste o estoque por SKU. Veja movimentações."
+                href="/dashboard/admin/inventory"
                 color="#fef3c7"
               />
               <ModuleCardItem
                 icon="🏢"
-                title="Tenants / Admin"
+                title="Tenants"
                 desc="Gerencie empresas, usuários e permissões da plataforma."
                 href="/dashboard/catalog"
                 color="#fef3c7"
+                soon
               />
             </ModuleSection>
           )}
